@@ -38,5 +38,7 @@ interface MangaRepository {
 
     suspend fun updateAll(mangaUpdates: List<MangaUpdate>): Boolean
 
+    suspend fun updateSchedule(mangaId: Long, days: Int, time: Int): Boolean
+
     suspend fun insertNetworkManga(manga: List<Manga>): List<Manga>
 }

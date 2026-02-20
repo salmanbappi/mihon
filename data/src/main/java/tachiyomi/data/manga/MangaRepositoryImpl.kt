@@ -118,6 +118,22 @@ class MangaRepositoryImpl(
         }
     }
 
+    override suspend fun updateSchedule(mangaId: Long, days: Int, time: Int): Boolean {
+        return try {
+            handler.await {
+                mangasQueries.updateSchedule(
+                    fetchIntervalDays = days.toLong(),
+                    fetchIntervalTime = time.toLong(),
+                    mangaId = mangaId,
+                )
+            }
+            true
+        } catch (e: Exception) {
+            logcat(LogPriority.ERROR, e)
+            false
+        }
+    }
+
     override suspend fun insertNetworkManga(manga: List<Manga>): List<Manga> {
         return handler.await(inTransaction = true) {
             manga.map {
@@ -135,8 +151,6 @@ class MangaRepositoryImpl(
                     lastUpdate = it.lastUpdate,
                     nextUpdate = it.nextUpdate,
                     calculateInterval = it.fetchInterval.toLong(),
-                    fetchIntervalDays = it.fetchIntervalDays.toLong(),
-                    fetchIntervalTime = it.fetchIntervalTime.toLong(),
                     initialized = it.initialized,
                     viewerFlags = it.viewerFlags,
                     chapterFlags = it.chapterFlags,
@@ -171,8 +185,6 @@ class MangaRepositoryImpl(
                     lastUpdate = value.lastUpdate,
                     nextUpdate = value.nextUpdate,
                     calculateInterval = value.fetchInterval?.toLong(),
-                    fetchIntervalDays = value.fetchIntervalDays?.toLong(),
-                    fetchIntervalTime = value.fetchIntervalTime?.toLong(),
                     initialized = value.initialized,
                     viewer = value.viewerFlags,
                     chapterFlags = value.chapterFlags,
