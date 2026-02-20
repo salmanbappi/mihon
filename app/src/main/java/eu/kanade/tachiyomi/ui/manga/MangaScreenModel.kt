@@ -1190,7 +1190,9 @@ class MangaScreenModel(
                                 count = missingCount,
                             )
                         } ?: run {
-                        if (lowerChapter != null && lowerChapter.chapter.chapterNumber != higherChapter.chapter.chapterNumber) {
+                        if (lowerChapter != null &&
+                            lowerChapter.chapter.chapterNumber != higherChapter.chapter.chapterNumber
+                        ) {
                             ChapterList.Separator(
                                 id = "${lowerChapter.id}-${higherChapter.id}-separator",
                             )
