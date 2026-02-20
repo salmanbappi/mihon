@@ -1,0 +1,1 @@
+#!/bin/bash\n\ngit push "$@"\n\necho "Waiting for workflow run to start..."\nsleep 10\n\n# Get the latest run ID\nLATEST_RUN_ID=$(gh run list --limit 1 --json databaseId --jq ".[0].databaseId")\n\nif [ -z "$LATEST_RUN_ID" ]; then\n  echo "No workflow run found."\n  exit 1\nfi\n\necho "Watching run ID: $LATEST_RUN_ID"\ngh run watch "$LATEST_RUN_ID"\n
