@@ -404,7 +404,15 @@ class MangaScreenModel(
 
     fun setFetchSchedule(manga: Manga, days: Int, time: Int) {
         screenModelScope.launchIO {
-            if (mangaRepository.updateSchedule(manga.id, days, time)) {
+            if (
+                updateManga.await(
+                    MangaUpdate(
+                        id = manga.id,
+                        fetchIntervalDays = days,
+                        fetchIntervalTime = time,
+                    ),
+                )
+            ) {
                 // Trigger next update calculation
                 updateManga.awaitUpdateFetchInterval(manga.copy(fetchIntervalDays = days, fetchIntervalTime = time))
                 val updatedManga = mangaRepository.getMangaById(manga.id)

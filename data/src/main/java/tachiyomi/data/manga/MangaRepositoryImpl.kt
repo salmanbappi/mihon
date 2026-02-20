@@ -118,58 +118,6 @@ class MangaRepositoryImpl(
         }
     }
 
-    override suspend fun updateSchedule(mangaId: Long, days: Int, time: Int): Boolean {
-        return try {
-            handler.await {
-                mangasQueries.updateSchedule(
-                    fetchIntervalDays = days.toLong(),
-                    fetchIntervalTime = time.toLong(),
-                    mangaId = mangaId,
-                )
-            }
-            true
-        } catch (e: Exception) {
-            logcat(LogPriority.ERROR, e)
-            false
-        }
-    }
-
-    override suspend fun insertNetworkManga(manga: List<Manga>): List<Manga> {
-        return handler.await(inTransaction = true) {
-            manga.map {
-                mangasQueries.insertNetworkManga(
-                    source = it.source,
-                    url = it.url,
-                    artist = it.artist,
-                    author = it.author,
-                    description = it.description,
-                    genre = it.genre,
-                    title = it.title,
-                    status = it.status,
-                    thumbnailUrl = it.thumbnailUrl,
-                    favorite = it.favorite,
-                    lastUpdate = it.lastUpdate,
-                    nextUpdate = it.nextUpdate,
-                    calculateInterval = it.fetchInterval.toLong(),
-                    fetchIntervalDays = it.fetchIntervalDays.toLong(),
-                    fetchIntervalTime = it.fetchIntervalTime.toLong(),
-                    initialized = it.initialized,
-                    viewerFlags = it.viewerFlags,
-                    chapterFlags = it.chapterFlags,
-                    coverLastModified = it.coverLastModified,
-                    dateAdded = it.dateAdded,
-                    updateStrategy = it.updateStrategy,
-                    version = it.version,
-                    updateTitle = it.title.isNotBlank(),
-                    updateCover = !it.thumbnailUrl.isNullOrBlank(),
-                    updateDetails = it.initialized,
-                    mapper = MangaMapper::mapManga,
-                )
-                    .executeAsOne()
-            }
-        }
-    }
-
     private suspend fun partialUpdate(vararg mangaUpdates: MangaUpdate) {
         handler.await(inTransaction = true) {
             mangaUpdates.forEach { value ->
@@ -187,8 +135,6 @@ class MangaRepositoryImpl(
                     lastUpdate = value.lastUpdate,
                     nextUpdate = value.nextUpdate,
                     calculateInterval = value.fetchInterval?.toLong(),
-                    fetchIntervalDays = value.fetchIntervalDays?.toLong(),
-                    fetchIntervalTime = value.fetchIntervalTime?.toLong(),
                     initialized = value.initialized,
                     viewer = value.viewerFlags,
                     chapterFlags = value.chapterFlags,
