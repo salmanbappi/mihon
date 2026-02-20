@@ -54,6 +54,16 @@
     <string name="action_menu">Menu</string>
     <string name="action_filter">Filter</string>
     <string name="action_set_interval">Set interval</string>
+    <string name="day_monday">Monday</string>
+    <string name="day_tuesday">Tuesday</string>
+    <string name="day_wednesday">Wednesday</string>
+    <string name="day_thursday">Thursday</string>
+    <string name="day_friday">Friday</string>
+    <string name="day_saturday">Saturday</string>
+    <string name="day_sunday">Sunday</string>
+    <string name="manga_update_schedule">Update schedule</string>
+    <string name="manga_update_schedule_days">Update days</string>
+    <string name="manga_update_schedule_time">Update time</string>
     <string name="action_filter_bookmarked">Bookmarked</string>
     <string name="action_filter_tracked">Tracked</string>
     <string name="action_filter_unread">Unread</string>

@@ -1,11 +1,17 @@
 package eu.kanade.presentation.manga.components
 
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Checkbox
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -22,6 +28,7 @@ import androidx.compose.ui.unit.dp
 import eu.kanade.tachiyomi.util.system.isReleaseBuildType
 import kotlinx.collections.immutable.toImmutableList
 import tachiyomi.domain.manga.interactor.FetchInterval
+import tachiyomi.domain.manga.model.Manga
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.WheelTextPicker
 import tachiyomi.presentation.core.components.material.padding
@@ -64,12 +71,16 @@ fun DeleteChaptersDialog(
 
 @Composable
 fun SetIntervalDialog(
-    interval: Int,
-    nextUpdate: Instant?,
+    manga: Manga,
     onDismissRequest: () -> Unit,
     onValueChanged: ((Int) -> Unit)? = null,
+    onScheduleChanged: ((Int, Int) -> Unit)? = null,
 ) {
+    val interval = manga.fetchInterval
+    val nextUpdate = manga.expectedNextUpdate
     var selectedInterval by rememberSaveable { mutableIntStateOf(if (interval < 0) -interval else 0) }
+    var selectedDays by rememberSaveable { mutableIntStateOf(manga.fetchIntervalDays) }
+    var selectedTime by rememberSaveable { mutableIntStateOf(manga.fetchIntervalTime) }
 
     val nextUpdateDays = remember(nextUpdate) {
         return@remember if (nextUpdate != null) {
@@ -84,7 +95,9 @@ fun SetIntervalDialog(
         onDismissRequest = onDismissRequest,
         title = { Text(stringResource(MR.strings.pref_library_update_smart_update)) },
         text = {
-            Column {
+            Column(
+                modifier = Modifier.verticalScroll(rememberScrollState()),
+            ) {
                 if (nextUpdateDays != null && nextUpdateDays >= 0 && interval >= 0) {
                     Text(
                         stringResource(
@@ -109,7 +122,10 @@ fun SetIntervalDialog(
                 Spacer(Modifier.height(MaterialTheme.padding.small))
 
                 if (onValueChanged != null && (!isReleaseBuildType)) {
-                    Text(stringResource(MR.strings.manga_interval_custom_amount))
+                    Text(
+                        text = stringResource(MR.strings.manga_interval_custom_amount),
+                        style = MaterialTheme.typography.labelMedium,
+                    )
 
                     BoxWithConstraints(
                         modifier = Modifier.fillMaxWidth(),
@@ -133,6 +149,73 @@ fun SetIntervalDialog(
                         )
                     }
                 }
+
+                HorizontalDivider(modifier = Modifier.padding(vertical = MaterialTheme.padding.medium))
+
+                Text(
+                    text = stringResource(MR.strings.manga_update_schedule),
+                    style = MaterialTheme.typography.labelMedium,
+                )
+
+                val days = listOf(
+                    MR.strings.day_monday,
+                    MR.strings.day_tuesday,
+                    MR.strings.day_wednesday,
+                    MR.strings.day_thursday,
+                    MR.strings.day_friday,
+                    MR.strings.day_saturday,
+                    MR.strings.day_sunday,
+                )
+
+                days.forEachIndexed { index, dayRes ->
+                    val bit = 1 shl index
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Checkbox(
+                            checked = selectedDays and bit != 0,
+                            onCheckedChange = { checked ->
+                                selectedDays = if (checked) {
+                                    selectedDays or bit
+                                } else {
+                                    selectedDays and bit.inv()
+                                }
+                            },
+                        )
+                        Text(text = stringResource(dayRes))
+                    }
+                }
+
+                Spacer(Modifier.height(MaterialTheme.padding.small))
+
+                Text(
+                    text = stringResource(MR.strings.manga_update_schedule_time),
+                    style = MaterialTheme.typography.labelMedium,
+                )
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.Center,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    val hourItems = (0..23).map { it.toString().padStart(2, '0') }.toImmutableList()
+                    val minuteItems = (0..59).map { it.toString().padStart(2, '0') }.toImmutableList()
+
+                    WheelTextPicker(
+                        items = hourItems,
+                        size = DpSize(64.dp, 128.dp),
+                        startIndex = selectedTime / 60,
+                        onSelectionChanged = { selectedTime = it * 60 + (selectedTime % 60) },
+                    )
+                    Text(" : ", style = MaterialTheme.typography.titleLarge)
+                    WheelTextPicker(
+                        items = minuteItems,
+                        size = DpSize(64.dp, 128.dp),
+                        startIndex = selectedTime % 60,
+                        onSelectionChanged = { selectedTime = (selectedTime / 60) * 60 + it },
+                    )
+                }
             }
         },
         dismissButton = {
@@ -141,10 +224,13 @@ fun SetIntervalDialog(
             }
         },
         confirmButton = {
-            TextButton(onClick = {
-                onValueChanged?.invoke(selectedInterval)
-                onDismissRequest()
-            }) {
+            TextButton(
+                onClick = {
+                    onValueChanged?.invoke(selectedInterval)
+                    onScheduleChanged?.invoke(selectedDays, selectedTime)
+                    onDismissRequest()
+                },
+            ) {
                 Text(text = stringResource(MR.strings.action_ok))
             }
         },

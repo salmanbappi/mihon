@@ -19,4 +19,5 @@ enum class MangaScreenItem {
     DESCRIPTION_WITH_TAG,
     CHAPTER_HEADER,
     CHAPTER,
+    SEPARATOR,
 }

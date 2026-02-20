@@ -23,6 +23,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.SmallExtendedFloatingActionButton
 import androidx.compose.material3.SnackbarHost
@@ -748,15 +749,29 @@ private fun LazyListScope.sharedChapterItems(
             when (item) {
                 is ChapterList.MissingCount -> "missing-count-${item.id}"
                 is ChapterList.Item -> "chapter-${item.id}"
+                is ChapterList.Separator -> "separator-${item.id}"
             }
         },
-        contentType = { MangaScreenItem.CHAPTER },
+        contentType = {
+            when (it) {
+                is ChapterList.Separator -> MangaScreenItem.SEPARATOR
+                else -> MangaScreenItem.CHAPTER
+            }
+        },
     ) { item ->
         val haptic = LocalHapticFeedback.current
 
         when (item) {
             is ChapterList.MissingCount -> {
                 MissingChapterCountListItem(count = item.count)
+            }
+            is ChapterList.Separator -> {
+                HorizontalDivider(
+                    modifier = Modifier.padding(
+                        horizontal = MaterialTheme.padding.medium,
+                        vertical = MaterialTheme.padding.small,
+                    ),
+                )
             }
             is ChapterList.Item -> {
                 MangaChapterListItem(

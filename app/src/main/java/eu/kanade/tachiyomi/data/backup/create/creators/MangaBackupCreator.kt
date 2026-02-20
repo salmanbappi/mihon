@@ -101,4 +101,6 @@ private fun Manga.toBackupManga() =
         version = this.version,
         notes = this.notes,
         initialized = this.initialized,
+        fetchIntervalDays = this.fetchIntervalDays,
+        fetchIntervalTime = this.fetchIntervalTime,
     )

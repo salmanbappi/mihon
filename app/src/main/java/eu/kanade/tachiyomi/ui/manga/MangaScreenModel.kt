@@ -402,6 +402,25 @@ class MangaScreenModel(
         }
     }
 
+    fun setFetchSchedule(manga: Manga, days: Int, time: Int) {
+        screenModelScope.launchIO {
+            if (
+                updateManga.await(
+                    MangaUpdate(
+                        id = manga.id,
+                        fetchIntervalDays = days,
+                        fetchIntervalTime = time,
+                    ),
+                )
+            ) {
+                // Trigger next update calculation
+                updateManga.awaitUpdateFetchInterval(manga.copy(fetchIntervalDays = days, fetchIntervalTime = time))
+                val updatedManga = mangaRepository.getMangaById(manga.id)
+                updateSuccessState { it.copy(manga = updatedManga) }
+            }
+        }
+    }
+
     /**
      * Returns true if the manga has any downloads.
      */
@@ -1170,7 +1189,15 @@ class MangaScreenModel(
                                 id = "${lowerChapter?.id}-${higherChapter.id}",
                                 count = missingCount,
                             )
+                        } ?: run {
+                        if (lowerChapter != null && lowerChapter.chapter.chapterNumber != higherChapter.chapter.chapterNumber) {
+                            ChapterList.Separator(
+                                id = "${lowerChapter.id}-${higherChapter.id}-separator",
+                            )
+                        } else {
+                            null
                         }
+                    }
                 }
             }
 
@@ -1205,6 +1232,11 @@ sealed class ChapterList {
     data class MissingCount(
         val id: String,
         val count: Int,
+    ) : ChapterList()
+
+    @Immutable
+    data class Separator(
+        val id: String,
     ) : ChapterList()
 
     @Immutable

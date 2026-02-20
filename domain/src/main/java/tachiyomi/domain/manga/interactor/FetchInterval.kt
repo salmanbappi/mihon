@@ -90,6 +90,10 @@ class FetchInterval(
         dateTime: ZonedDateTime,
         window: Pair<Long, Long>,
     ): Long {
+        if (manga.fetchIntervalDays != 0) {
+            return calculateScheduledUpdate(manga, dateTime)
+        }
+
         if (manga.nextUpdate in window.first.rangeTo(window.second + 1)) {
             return manga.nextUpdate
         }
@@ -106,6 +110,27 @@ class FetchInterval(
                 ?: increaseInterval(interval, timeSinceLatest, increaseWhenOver = 10),
         )
         return latestDate.plusDays((cycle + 1) * interval.absoluteValue.toLong()).toEpochSecond(dateTime.offset) * 1000
+    }
+
+    private fun calculateScheduledUpdate(manga: Manga, dateTime: ZonedDateTime): Long {
+        val days = manga.fetchIntervalDays
+        val time = manga.fetchIntervalTime
+        val hour = time / 60
+        val minute = time % 60
+
+        var next = dateTime.withHour(hour).withMinute(minute).withSecond(0).withNano(0)
+        if (next.isBefore(dateTime)) {
+            next = next.plusDays(1)
+        }
+
+        while (true) {
+            val dayOfWeek = next.dayOfWeek.value // 1 (Mon) to 7 (Sun)
+            val bit = 1 shl (dayOfWeek - 1)
+            if (days and bit != 0) {
+                return next.toInstant().toEpochMilli()
+            }
+            next = next.plusDays(1)
+        }
     }
 
     private fun increaseInterval(delta: Int, timeSinceLatest: Int, increaseWhenOver: Int): Int {
