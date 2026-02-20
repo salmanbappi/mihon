@@ -118,6 +118,40 @@ class MangaRepositoryImpl(
         }
     }
 
+    override suspend fun insertNetworkManga(manga: List<Manga>): List<Manga> {
+        return handler.awaitList(inTransaction = true) {
+            manga.map {
+                mangasQueries.insertNetworkManga(
+                    source = it.source,
+                    url = it.url,
+                    artist = it.artist,
+                    author = it.author,
+                    description = it.description,
+                    genre = it.genre?.let(StringListColumnAdapter::encode),
+                    title = it.title,
+                    status = it.status,
+                    thumbnailUrl = it.thumbnailUrl,
+                    favorite = it.favorite,
+                    lastUpdate = it.lastUpdate,
+                    nextUpdate = it.nextUpdate,
+                    calculateInterval = it.fetchInterval.toLong(),
+                    initialized = it.initialized,
+                    viewerFlags = it.viewerFlags,
+                    chapterFlags = it.chapterFlags,
+                    coverLastModified = it.coverLastModified,
+                    dateAdded = it.dateAdded,
+                    updateStrategy = it.updateStrategy,
+                    version = it.version,
+                    updateTitle = it.title.isNotBlank(),
+                    updateCover = !it.thumbnailUrl.isNullOrBlank(),
+                    updateDetails = it.initialized,
+                    mapper = MangaMapper::mapManga,
+                )
+                    .executeAsOne()
+            }
+        }
+    }
+
     private suspend fun partialUpdate(vararg mangaUpdates: MangaUpdate) {
         handler.await(inTransaction = true) {
             mangaUpdates.forEach { value ->
