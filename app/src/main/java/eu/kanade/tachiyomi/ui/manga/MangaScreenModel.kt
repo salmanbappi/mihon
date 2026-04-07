@@ -1197,17 +1197,7 @@ class MangaScreenModel(
                                 id = "${lowerChapter?.id}-${higherChapter.id}",
                                 count = missingCount,
                             )
-                        } ?: run {
-                        if (lowerChapter != null &&
-                            lowerChapter.chapter.chapterNumber != higherChapter.chapter.chapterNumber
-                        ) {
-                            ChapterList.Separator(
-                                id = "${lowerChapter.id}-${higherChapter.id}-separator",
-                            )
-                        } else {
-                            null
                         }
-                    }
                 }
             }
 

@@ -768,12 +768,7 @@ private fun LazyListScope.sharedChapterItems(
                 MissingChapterCountListItem(count = item.count)
             }
             is ChapterList.Separator -> {
-                HorizontalDivider(
-                    modifier = Modifier.padding(
-                        horizontal = MaterialTheme.padding.medium,
-                        vertical = MaterialTheme.padding.small,
-                    ),
-                )
+                // No-op to remove dividers between chapters
             }
             is ChapterList.Item -> {
                 MangaChapterListItem(
