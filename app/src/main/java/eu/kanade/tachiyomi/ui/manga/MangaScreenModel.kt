@@ -80,6 +80,7 @@ import tachiyomi.domain.manga.interactor.GetDuplicateLibraryManga
 import tachiyomi.domain.manga.interactor.GetMangaWithChapters
 import tachiyomi.domain.manga.interactor.SetMangaChapterFlags
 import tachiyomi.domain.manga.model.Manga
+import tachiyomi.domain.manga.model.MangaUpdate
 import tachiyomi.domain.manga.model.MangaWithChapterCount
 import tachiyomi.domain.manga.model.applyFilter
 import tachiyomi.domain.manga.repository.MangaRepository
