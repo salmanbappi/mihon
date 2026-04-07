@@ -119,7 +119,7 @@ class MangaRepositoryImpl(
     }
 
     override suspend fun insertNetworkManga(manga: List<Manga>): List<Manga> {
-        return handler.awaitList(inTransaction = true) {
+        return handler.await(inTransaction = true) {
             manga.map {
                 mangasQueries.insertNetworkManga(
                     source = it.source,
@@ -127,27 +127,27 @@ class MangaRepositoryImpl(
                     artist = it.artist,
                     author = it.author,
                     description = it.description,
-                    genre = it.genre?.let(StringListColumnAdapter::encode),
+                    genre = it.genre,
                     title = it.title,
                     status = it.status,
-                    thumbnail_url = it.thumbnailUrl,
+                    thumbnailUrl = it.thumbnailUrl,
                     favorite = it.favorite,
-                    last_update = it.lastUpdate,
-                    next_update = it.nextUpdate,
+                    lastUpdate = it.lastUpdate,
+                    nextUpdate = it.nextUpdate,
                     initialized = it.initialized,
-                    viewer = it.viewerFlags,
-                    chapter_flags = it.chapterFlags,
-                    cover_last_modified = it.coverLastModified,
-                    date_added = it.dateAdded,
-                    update_strategy = it.updateStrategy,
-                    calculate_interval = it.fetchInterval.toLong(),
+                    viewerFlags = it.viewerFlags,
+                    chapterFlags = it.chapterFlags,
+                    coverLastModified = it.coverLastModified,
+                    dateAdded = it.dateAdded,
+                    updateStrategy = it.updateStrategy,
+                    calculateInterval = it.fetchInterval.toLong(),
                     version = it.version,
                     updateTitle = it.title.isNotBlank(),
                     updateCover = !it.thumbnailUrl.isNullOrBlank(),
                     updateDetails = it.initialized,
                 )
                     .executeAsOne()
-                it // return original for now to avoid Query mapping issues
+                it
             }
         }
     }
@@ -161,23 +161,23 @@ class MangaRepositoryImpl(
                     artist = value.artist,
                     author = value.author,
                     description = value.description,
-                    genre = value.genre?.let(StringListColumnAdapter::encode),
+                    genre = value.genre,
                     title = value.title,
                     status = value.status,
-                    thumbnail_url = value.thumbnailUrl,
+                    thumbnailUrl = value.thumbnailUrl,
                     favorite = value.favorite,
-                    last_update = value.lastUpdate,
-                    next_update = value.nextUpdate,
+                    lastUpdate = value.lastUpdate,
+                    nextUpdate = value.nextUpdate,
                     initialized = value.initialized,
                     viewer = value.viewerFlags,
-                    chapter_flags = value.chapterFlags,
-                    cover_last_modified = value.coverLastModified,
-                    date_added = value.dateAdded,
+                    chapterFlags = value.chapterFlags,
+                    coverLastModified = value.coverLastModified,
+                    dateAdded = value.dateAdded,
                     mangaId = value.id,
-                    update_strategy = value.updateStrategy?.let(UpdateStrategyColumnAdapter::encode),
-                    calculate_interval = value.fetchInterval?.toLong(),
+                    updateStrategy = value.updateStrategy,
+                    calculateInterval = value.fetchInterval?.toLong(),
                     version = value.version,
-                    is_syncing = 0,
+                    isSyncing = 0L,
                     notes = value.notes,
                 )
             }
