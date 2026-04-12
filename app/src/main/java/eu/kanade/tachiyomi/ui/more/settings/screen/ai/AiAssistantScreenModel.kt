@@ -32,7 +32,7 @@ class AiAssistantScreenModel(
     fun createNewSession() {
         val newId = System.currentTimeMillis()
         val newSession = ChatSession(newId, "New Analytic Session")
-        _sessions.update { it.add(newSession) }
+        _sessions.update { (it + newSession).toImmutableList() }
         switchSession(newId)
     }
 
@@ -102,6 +102,7 @@ class AiAssistantScreenModel(
         val activeSessionId: Long? = null,
         val messages: ImmutableList<ChatMessage> = persistentListOf(),
         val isLoading: Boolean = false,
+        val selectedSessionIds: Set<Long> = emptySet(),
         val streamingMessage: String? = null,
     )
 }
