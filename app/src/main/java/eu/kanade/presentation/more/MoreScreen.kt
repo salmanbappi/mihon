@@ -119,7 +119,7 @@ fun MoreScreen(
             item {
                 TextPreferenceWidget(
                     title = "Extension Health",
-                    icon = Icons.Outlined.Analytics,
+                    icon = Icons.Outlined.QueryStats,
                     onPreferenceClick = onClickExtensionHealth,
                 )
             }

@@ -13,6 +13,7 @@ import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
 import eu.kanade.presentation.components.AppBar
 import eu.kanade.presentation.components.AppBarActions
+import kotlinx.collections.immutable.persistentListOf
 import tachiyomi.presentation.core.components.material.Scaffold
 import kotlinx.coroutines.flow.collectLatest
 
@@ -42,7 +43,7 @@ object InfrastructureScreen : Screen {
                     navigateUp = navigator::pop,
                     actions = {
                         AppBarActions(
-                            listOf(
+                            persistentListOf(
                                 AppBar.Action(
                                     title = "Copy Report",
                                     icon = Icons.Outlined.ContentCopy,
