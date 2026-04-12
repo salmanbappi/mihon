@@ -39,6 +39,9 @@ fun InfrastructureScreen(
     state: InfrastructureState,
     isRefreshing: Boolean,
     onRefresh: () -> Unit,
+    aiDiagnosis: String?,
+    isAiLoading: Boolean,
+    onRunAiDiagnosis: () -> Unit,
     contentPadding: PaddingValues,
 ) {
     if (state is InfrastructureState.Loading) {
@@ -49,7 +52,7 @@ fun InfrastructureScreen(
     }
 
     val report = (state as InfrastructureState.Success).report
-    val pagerState = rememberPagerState(pageCount = { 2 })
+    val pagerState = rememberPagerState(pageCount = { 3 })
     val scope = rememberCoroutineScope()
     val refreshState = rememberPullToRefreshState()
 
@@ -59,7 +62,7 @@ fun InfrastructureScreen(
             containerColor = Color.Transparent,
             divider = {}
         ) {
-            listOf("EXTENSIONS", "SYSTEM LOGS").forEachIndexed { index, title ->
+            listOf("EXTENSIONS", "SYSTEM LOGS", "AI DIAGNOSIS").forEachIndexed { index, title ->
                 Tab(
                     selected = pagerState.currentPage == index,
                     onClick = { scope.launch { pagerState.animateScrollToPage(index) } }
@@ -87,7 +90,7 @@ fun InfrastructureScreen(
                 ) {
                     when (pageIndex) {
                         0 -> {
-                            item { GlobalTelemetryHeader(report.globalMetrics) }
+                            item { GlobalTelemetryHeader(report.globalMetrics, onRunAiDiagnosis, isAiLoading) }
                             item { InfrastructureHealthBoard(report.nodes) }
                             items(
                                 items = report.nodes.distinctBy { it.name },
@@ -107,6 +110,82 @@ fun InfrastructureScreen(
                                 LogEntryRow(log)
                             }
                         }
+                        2 -> {
+                            item {
+                                AiDiagnosisSection(
+                                    aiDiagnosis = aiDiagnosis,
+                                    isLoading = isAiLoading,
+                                    onRetry = onRunAiDiagnosis
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun AiDiagnosisSection(
+    aiDiagnosis: String?,
+    isLoading: Boolean,
+    onRetry: () -> Unit
+) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(
+                    imageVector = Icons.Outlined.AutoAwesome,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary
+                )
+                Spacer(modifier = Modifier.width(12.dp))
+                Text(
+                    "AI SYSTEM ANALYSIS",
+                    style = MaterialTheme.typography.labelLarge,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.primary
+                )
+            }
+            
+            Spacer(modifier = Modifier.height(16.dp))
+
+            if (isLoading && aiDiagnosis.isNullOrBlank()) {
+                Box(modifier = Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) {
+                    CircularProgressIndicator(modifier = Modifier.size(24.dp))
+                }
+            } else if (aiDiagnosis != null) {
+                Text(
+                    text = aiDiagnosis,
+                    style = MaterialTheme.typography.bodyMedium.copy(
+                        lineHeight = 20.sp,
+                        letterSpacing = 0.25.sp
+                    )
+                )
+                if (isLoading) {
+                    LinearProgressIndicator(
+                        modifier = Modifier.fillMaxWidth().padding(top = 16.dp).height(2.dp),
+                        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.5f)
+                    )
+                }
+            } else {
+                Column(
+                    modifier = Modifier.fillMaxWidth().padding(32.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Text(
+                        "No analysis performed yet.",
+                        style = MaterialTheme.typography.bodySmall,
+                        modifier = Modifier.secondaryItemAlpha()
+                    )
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Button(onClick = onRetry) {
+                        Text("Run Diagnosis")
                     }
                 }
             }
@@ -122,7 +201,11 @@ private fun EmptyState(message: String) {
 }
 
 @Composable
-private fun GlobalTelemetryHeader(metrics: GlobalNetworkMetrics) {
+private fun GlobalTelemetryHeader(
+    metrics: GlobalNetworkMetrics,
+    onRunAiDiagnosis: () -> Unit,
+    isAiLoading: Boolean
+) {
     Surface(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(24.dp),
@@ -134,6 +217,25 @@ private fun GlobalTelemetryHeader(metrics: GlobalNetworkMetrics) {
                 Icon(Icons.Outlined.QueryStats, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(18.dp))
                 Spacer(modifier = Modifier.width(12.dp))
                 Text("EXTENSION COMMAND CENTER", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.ExtraBold, letterSpacing = 1.sp)
+                
+                Spacer(modifier = Modifier.weight(1f))
+                
+                IconButton(
+                    onClick = onRunAiDiagnosis,
+                    enabled = !isAiLoading,
+                    modifier = Modifier.size(24.dp)
+                ) {
+                    if (isAiLoading) {
+                        CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
+                    } else {
+                        Icon(
+                            imageVector = Icons.Outlined.AutoAwesome,
+                            contentDescription = "Deep AI Diagnosis",
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
+                }
             }
             Spacer(modifier = Modifier.height(24.dp))
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {

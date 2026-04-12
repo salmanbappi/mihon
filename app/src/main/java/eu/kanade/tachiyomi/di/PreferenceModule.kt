@@ -1,6 +1,8 @@
 package eu.kanade.tachiyomi.di
 
 import android.app.Application
+import eu.kanade.domain.ai.AiPreferences
+import eu.kanade.tachiyomi.data.ai.AiManager
 import eu.kanade.domain.base.BasePreferences
 import eu.kanade.domain.source.service.SourcePreferences
 import eu.kanade.domain.track.service.TrackPreferences
@@ -73,6 +75,12 @@ class PreferenceModule(val app: Application) : InjektModule {
         }
         addSingletonFactory {
             BasePreferences(app, get())
+        }
+        addSingletonFactory {
+            AiPreferences(get())
+        }
+        addSingletonFactory {
+            AiManager(app, get(), get(), get(), get(), get())
         }
     }
 }

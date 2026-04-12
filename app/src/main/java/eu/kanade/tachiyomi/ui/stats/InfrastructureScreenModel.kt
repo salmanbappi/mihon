@@ -6,6 +6,8 @@ import android.content.ClipboardManager
 import android.content.Context
 import cafe.adriel.voyager.core.model.StateScreenModel
 import cafe.adriel.voyager.core.model.screenModelScope
+import eu.kanade.domain.ai.AiPreferences
+import eu.kanade.tachiyomi.data.ai.AiManager
 import eu.kanade.tachiyomi.network.NetworkHelper
 import eu.kanade.tachiyomi.network.model.*
 import eu.kanade.tachiyomi.source.online.HttpSource
@@ -36,10 +38,18 @@ class InfrastructureScreenModel(
     private val sourceManager: SourceManager = Injekt.get(),
     private val networkHelper: NetworkHelper = Injekt.get(),
     private val libraryPreferences: LibraryPreferences = Injekt.get(),
+    private val aiManager: AiManager = Injekt.get(),
+    private val aiPreferences: AiPreferences = Injekt.get(),
 ) : StateScreenModel<InfrastructureState>(InfrastructureState.Loading) {
 
     private val _isRefreshing = MutableStateFlow(false)
     val isRefreshing: StateFlow<Boolean> = _isRefreshing.asStateFlow()
+
+    private val _isAiLoading = MutableStateFlow(false)
+    val isAiLoading: StateFlow<Boolean> = _isAiLoading.asStateFlow()
+
+    private val _aiDiagnosis = MutableStateFlow<String?>(null)
+    val aiDiagnosis: StateFlow<String?> = _aiDiagnosis.asStateFlow()
 
     private val _events = Channel<Event>(Int.MAX_VALUE)
     val events = _events.receiveAsFlow()
@@ -48,6 +58,32 @@ class InfrastructureScreenModel(
 
     init {
         runDiagnostics()
+    }
+
+    fun runAiDiagnosis() {
+        val state = state.value
+        if (state !is InfrastructureState.Success || _isAiLoading.value) return
+
+        _isAiLoading.value = true
+        _aiDiagnosis.value = ""
+
+        val report = state.report
+        val summary = """
+            Nodes: ${report.nodes.size}
+            Active: ${report.globalMetrics.activeNodeCount}
+            Avg Latency: ${report.globalMetrics.avgLatency}ms
+            Failing: ${report.nodes.filter { it.status != NodeStatus.OPERATIONAL }.joinToString { it.name }}
+        """.trimIndent()
+
+        screenModelScope.launchIO {
+            try {
+                aiManager.getDiagnosticAnalysisStream(summary).collect { chunk ->
+                    _aiDiagnosis.update { (it ?: "") + chunk }
+                }
+            } finally {
+                _isAiLoading.value = false
+            }
+        }
     }
 
     fun copyReportToClipboard() {
