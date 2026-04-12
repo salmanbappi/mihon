@@ -12,7 +12,6 @@ import eu.kanade.tachiyomi.data.download.DownloadManager
 import eu.kanade.tachiyomi.data.track.TrackerManager
 import eu.kanade.tachiyomi.extension.ExtensionManager
 import eu.kanade.tachiyomi.source.model.SManga
-import eu.kanade.tachiyomi.source.online.HttpSource
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import tachiyomi.core.common.util.lang.launchIO
@@ -56,7 +55,7 @@ class StatsScreenModel(
             val mangaTrackMap = getMangaTrackMap(distinctLibraryManga)
             val scoredMangaTrackerMap = getScoredMangaTrackMap(mangaTrackMap)
 
-            val meanScore = getCombinedMeanScore(distinctLibraryManga, scoredMangaTrackerMap)
+            val meanScore = getCombinedMeanScore(scoredMangaTrackerMap)
 
             val overviewStatData = StatsData.Overview(
                 libraryMangaCount = distinctLibraryManga.size,
@@ -79,7 +78,7 @@ class StatsScreenModel(
             )
 
             val trackersStatData = StatsData.Trackers(
-                trackedTitleCount = mangaTrackMap.count { it.value.isNotEmpty() || distinctLibraryManga.find { a -> a.id == it.key }?.manga?.score != null },
+                trackedTitleCount = mangaTrackMap.count { it.value.isNotEmpty() },
                 meanScore = meanScore,
                 trackerCount = loggedInTrackers.size,
             )
@@ -127,8 +126,8 @@ class StatsScreenModel(
 
             // Score Distribution
             val scoreDistribution = StatsData.ScoreDistribution(
-                scoredMangaCount = distinctLibraryManga.count { it.manga.score != null } + scoredMangaTrackerMap.size,
-                distribution = getCombinedScoreDistribution(distinctLibraryManga, scoredMangaTrackerMap)
+                scoredMangaCount = scoredMangaTrackerMap.size,
+                distribution = getCombinedScoreDistribution(scoredMangaTrackerMap)
             )
 
             // Status Breakdown
@@ -238,14 +237,14 @@ class StatsScreenModel(
     }
 
     private fun getGlobalUpdateItemCount(libraryManga: List<LibraryManga>): Int {
-        val includedCategories = preferences.updateCategories().get().map { it.toLong() }
+        val includedCategories = preferences.updateCategories.get().map { it.toLong() }
         val includedManga = if (includedCategories.isNotEmpty()) {
             libraryManga.filter { manga -> manga.categories.any { it in includedCategories } }
         } else {
             libraryManga
         }
 
-        val excludedCategories = preferences.updateCategoriesExclude().get().map { it.toLong() }
+        val excludedCategories = preferences.updateCategoriesExclude.get().map { it.toLong() }
         val excludedMangaIds = if (excludedCategories.isNotEmpty()) {
             libraryManga.mapNotNull { manga ->
                 manga.id.takeIf { manga.categories.any { it in excludedCategories } }
@@ -254,7 +253,7 @@ class StatsScreenModel(
             emptyList()
         }
 
-        val updateRestrictions = preferences.autoUpdateMangaRestrictions().get()
+        val updateRestrictions = preferences.autoUpdateMangaRestrictions.get()
         return includedManga
             .fastFilter { it.id !in excludedMangaIds }
             .fastDistinctBy { it.id }
@@ -286,45 +285,24 @@ class StatsScreenModel(
     }
 
     private fun getCombinedMeanScore(
-        libraryManga: List<LibraryManga>,
         scoredTrackMap: Map<Long, List<Track>>
     ): Double {
-        val scores = mutableListOf<Double>()
-        
-        libraryManga.forEach { item ->
-            val localScore = item.manga.score
-            if (localScore != null && localScore > 0) {
-                scores.add(localScore.toDouble())
-            } else {
-                val trackScores = scoredTrackMap[item.id]
-                if (!trackScores.isNullOrEmpty()) {
-                    scores.add(trackScores.map { get10PointScore(it) }.average())
-                }
-            }
+        val scores = scoredTrackMap.values.flatMap { tracks ->
+            tracks.map { get10PointScore(it) }
         }
         
         return if (scores.isEmpty()) 0.0 else scores.average()
     }
 
     private fun getCombinedScoreDistribution(
-        libraryManga: List<LibraryManga>,
         scoredTrackMap: Map<Long, List<Track>>
     ): Map<Int, Int> {
         val distribution = mutableMapOf<Int, Int>()
         
-        libraryManga.forEach { item ->
-            val localScore = item.manga.score
-            if (localScore != null && localScore > 0) {
-                val scoreInt = localScore.toInt().coerceIn(1, 10)
-                distribution[scoreInt] = (distribution[scoreInt] ?: 0) + 1
-            } else {
-                val trackScores = scoredTrackMap[item.id]
-                if (!trackScores.isNullOrEmpty()) {
-                    val avgScore = trackScores.map { get10PointScore(it) }.average()
-                    val scoreInt = avgScore.toInt().coerceIn(1, 10)
-                    distribution[scoreInt] = (distribution[scoreInt] ?: 0) + 1
-                }
-            }
+        scoredTrackMap.values.forEach { tracks ->
+            val avgScore = tracks.map { get10PointScore(it) }.average()
+            val scoreInt = avgScore.toInt().coerceIn(1, 10)
+            distribution[scoreInt] = (distribution[scoreInt] ?: 0) + 1
         }
         
         return distribution
