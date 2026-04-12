@@ -191,9 +191,7 @@ private fun MessageBubble(message: AiMessage, onCopy: (String) -> Unit) {
         ) {
             Column(modifier = Modifier.padding(12.dp)) {
                 if (!isUser) {
-                    SelectionContainer {
-                        MarkdownRender(content = message.content)
-                    }
+                    MarkdownRender(content = message.content)
                 } else {
                     Text(text = message.content, color = MaterialTheme.colorScheme.onPrimary)
                 }
