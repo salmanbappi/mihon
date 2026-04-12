@@ -93,7 +93,7 @@ class AiAssistantScreen : Screen() {
                 ) {
                     Spacer(Modifier.height(12.dp))
                     Text(
-                        "DIAGNOSTIC SESSIONS",
+                        "ANALYTIC SESSIONS",
                         modifier = Modifier.padding(horizontal = 28.dp, vertical = 16.dp),
                         style = MaterialTheme.typography.labelLarge,
                         color = MaterialTheme.colorScheme.primary,
@@ -121,7 +121,13 @@ class AiAssistantScreen : Screen() {
                         items(sessions) { session ->
                             NavigationDrawerItem(
                                 icon = { Icon(Icons.Default.History, null) },
-                                label = { Text(session.title, maxLines = 1, overflow = TextOverflow.Ellipsis) },
+                                label = { 
+                                    Text(
+                                        session.title, 
+                                        maxLines = 1, 
+                                        overflow = TextOverflow.Ellipsis 
+                                    ) 
+                                },
                                 selected = state.activeSessionId == session.id,
                                 onClick = {
                                     screenModel.switchSession(session.id)
@@ -146,6 +152,7 @@ class AiAssistantScreen : Screen() {
                         }
                     )
                 },
+                containerColor = MaterialTheme.colorScheme.surface,
                 snackbarHost = { SnackbarHost(hostState = snackbarHostState) },
                 contentWindowInsets = WindowInsets(0)
             ) { padding ->
@@ -155,82 +162,82 @@ class AiAssistantScreen : Screen() {
                         .padding(top = padding.calculateTopPadding())
                         .imePadding()
                 ) {
-                    DiagnosticHUD(errorCount)
-                    
-                    LazyColumn(
-                        state = listState,
-                        modifier = Modifier.weight(1f),
-                        contentPadding = PaddingValues(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(16.dp),
-                    ) {
-                        if (state.messages.isEmpty()) {
-                            item {
-                                AssistantMessage(
-                                    content = "System core online. Diagnostic interface active. How can I assist with your system today?",
-                                    onCopy = {
-                                        context.copyToClipboard("Mihon AI", it)
-                                        scope.launch { snackbarHostState.showSnackbar("Copied to clipboard") }
-                                    }
-                                )
-                            }
-                        }
-                        items(state.messages) { message ->
-                            if (message.role == "user") {
-                                val aiPreferences = remember { Injekt.get<AiPreferences>() }
-                                val displayName by aiPreferences.displayName().collectAsState()
-                                Column(horizontalAlignment = Alignment.End, modifier = Modifier.fillMaxWidth()) {
-                                    Text(
-                                        text = displayName.uppercase() + " // UPLINK",
-                                        style = MaterialTheme.typography.labelSmall,
-                                        color = MaterialTheme.colorScheme.primary,
-                                        fontFamily = FontFamily.Monospace,
-                                        fontWeight = FontWeight.Bold,
-                                        modifier = Modifier.padding(end = 8.dp, bottom = 4.dp).alpha(0.6f)
+                        DiagnosticHUD(errorCount)
+                        
+                        LazyColumn(
+                            state = listState,
+                            modifier = Modifier.weight(1f),
+                            contentPadding = PaddingValues(16.dp),
+                            verticalArrangement = Arrangement.spacedBy(16.dp),
+                        ) {
+                            if (state.messages.isEmpty()) {
+                                item {
+                                    AssistantMessage(
+                                        content = "Analytical core online. Session synchronized. I have deep context of your manga library and system logs. How can I assist with your collection or system today?",
+                                        onCopy = {
+                                            context.copyToClipboard("Mihon AI", it)
+                                            scope.launch { snackbarHostState.showSnackbar("Copied to clipboard") }
+                                        }
                                     )
-                                    UserMessage(message.content)
                                 }
-                            } else {
-                                AssistantMessage(
-                                    content = message.content,
-                                    onCopy = {
-                                        context.copyToClipboard("Mihon AI", it)
-                                        scope.launch { snackbarHostState.showSnackbar("Copied to clipboard") }
+                            }
+                            items(state.messages) { message ->
+                                if (message.role == "user") {
+                                    val aiPreferences = remember { Injekt.get<AiPreferences>() }
+                                    val displayName by aiPreferences.displayName().collectAsState()
+                                    Column(horizontalAlignment = Alignment.End, modifier = Modifier.fillMaxWidth()) {
+                                        Text(
+                                            text = displayName.ifBlank { "USER" }.uppercase() + " // UPLINK",
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = MaterialTheme.colorScheme.primary,
+                                            fontFamily = FontFamily.Monospace,
+                                            fontWeight = FontWeight.Bold,
+                                            modifier = Modifier.padding(end = 8.dp, bottom = 4.dp).alpha(0.6f)
+                                        )
+                                        UserMessage(message.content)
                                     }
-                                )
+                                } else {
+                                    AssistantMessage(
+                                        content = message.content,
+                                        onCopy = {
+                                            context.copyToClipboard("Mihon AI", it)
+                                            scope.launch { snackbarHostState.showSnackbar("Copied to clipboard") }
+                                        }
+                                    )
+                                }
+                            }
+                            state.streamingMessage?.let { streamingContent ->
+                                item {
+                                    AssistantMessage(
+                                        content = streamingContent,
+                                        onCopy = {
+                                            context.copyToClipboard("Mihon AI", it)
+                                            scope.launch { snackbarHostState.showSnackbar("Copied to clipboard") }
+                                        }
+                                    )
+                                }
+                            }
+                            if (state.isLoading && state.streamingMessage == null) {
+                                item {
+                                    ProcessingIndicator()
+                                }
                             }
                         }
-                        state.streamingMessage?.let { streamingContent ->
-                            item {
-                                AssistantMessage(
-                                    content = streamingContent,
-                                    onCopy = {
-                                        context.copyToClipboard("Mihon AI", it)
-                                        scope.launch { snackbarHostState.showSnackbar("Copied to clipboard") }
-                                    }
-                                )
-                            }
-                        }
-                        if (state.isLoading && state.streamingMessage == null) {
-                            item {
-                                ProcessingIndicator()
-                            }
-                        }
-                    }
 
-                    ChatInput(
-                        value = input,
-                        onValueChange = { input = it },
-                        isLoading = state.isLoading,
-                        onSend = {
-                            screenModel.sendMessage(input)
-                            input = ""
-                        },
-                        modifier = Modifier.navigationBarsPadding()
-                    )
+                        ChatInput(
+                            value = input,
+                            onValueChange = { input = it },
+                            isLoading = state.isLoading,
+                            onSend = {
+                                screenModel.sendMessage(input)
+                                input = ""
+                            },
+                            modifier = Modifier.navigationBarsPadding()
+                        )
+                    }
                 }
             }
         }
-    }
 
     @Composable
     private fun DiagnosticHUD(errorCount: Int) {
@@ -302,7 +309,7 @@ class AiAssistantScreen : Screen() {
                 TextField(
                     value = value,
                     onValueChange = onValueChange,
-                    placeholder = { Text("Query system diagnostic...", style = MaterialTheme.typography.bodyMedium) },
+                    placeholder = { Text("Query system intelligence...", style = MaterialTheme.typography.bodyMedium) },
                     modifier = Modifier
                         .weight(1f)
                         .clip(RoundedCornerShape(28.dp))

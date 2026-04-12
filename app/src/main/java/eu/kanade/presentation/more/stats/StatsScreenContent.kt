@@ -206,7 +206,7 @@ private fun AiIntelligenceSection(
         ) {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.padding(16.dp)
+                modifier = Modifier.padding(MaterialTheme.padding.medium)
             ) {
                 Icon(
                     imageVector = Icons.Outlined.AutoAwesome,
