@@ -38,6 +38,7 @@ fun MoreScreen(
     onClickDownloadQueue: () -> Unit,
     onClickCategories: () -> Unit,
     onClickStats: () -> Unit,
+    onClickExtensionHealth: () -> Unit,
     onClickDataAndStorage: () -> Unit,
     onClickSettings: () -> Unit,
     onClickAbout: () -> Unit,
@@ -113,6 +114,13 @@ fun MoreScreen(
                     title = stringResource(MR.strings.label_stats),
                     icon = Icons.Outlined.QueryStats,
                     onPreferenceClick = onClickStats,
+                )
+            }
+            item {
+                TextPreferenceWidget(
+                    title = "Extension Health",
+                    icon = Icons.Outlined.Analytics,
+                    onPreferenceClick = onClickExtensionHealth,
                 )
             }
             item {
