@@ -6,9 +6,9 @@ class AiPreferences(
     private val preferenceStore: PreferenceStore,
 ) {
 
-    fun enableAi() = preferenceStore.getBoolean("enable_ai", true)
+    fun enableAi() = preferenceStore.getBoolean("enable_ai", false)
 
-    fun aiEngine() = preferenceStore.getString("ai_engine", "groq")
+    fun aiEngine() = preferenceStore.getString("ai_engine", "gemini")
 
     fun geminiApiKey() = preferenceStore.getString("gemini_api_key", "")
 
@@ -29,7 +29,9 @@ class AiPreferences(
 
     // Profile
     fun profilePhotoUri() = preferenceStore.getString("profile_photo_uri", "")
-    fun displayName() = preferenceStore.getString("display_name", "Explorer")
+    fun displayName() = preferenceStore.getString("display_name", "Anime Explorer")
+
+    fun activeSessionId() = preferenceStore.getLong("active_ai_session_id", -1L)
 
     // Circuit Breaker
     fun lastAiRequestTime() = preferenceStore.getLong("last_ai_request_time", 0L)

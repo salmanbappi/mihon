@@ -44,7 +44,7 @@ import eu.kanade.presentation.components.MarkdownRender
 import eu.kanade.presentation.util.Screen
 import eu.kanade.tachiyomi.data.ai.AiManager
 import eu.kanade.tachiyomi.ui.more.settings.screen.ai.AiAssistantScreenModel
-import eu.kanade.tachiyomi.ui.more.settings.screen.ai.AiMessage
+import eu.kanade.tachiyomi.ui.more.settings.screen.ai.ChatMessage
 import eu.kanade.tachiyomi.util.system.copyToClipboard
 import kotlinx.coroutines.launch
 import tachiyomi.presentation.core.components.material.Scaffold
@@ -153,7 +153,6 @@ class AiAssistantScreen : Screen() {
                                 Icon(Icons.Default.Menu, "Session History")
                             }
                         }
-
                     )
                 },
                 containerColor = MaterialTheme.colorScheme.surface,
@@ -237,7 +236,6 @@ class AiAssistantScreen : Screen() {
                                 input = ""
                             }
                         )
-
                     }
                 }
             }
