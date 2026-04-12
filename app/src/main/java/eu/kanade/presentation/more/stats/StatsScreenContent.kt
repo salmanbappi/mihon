@@ -49,6 +49,7 @@ import eu.kanade.domain.ai.AiPreferences
 import eu.kanade.presentation.components.MarkdownRender
 import eu.kanade.presentation.more.stats.data.StatsData
 import eu.kanade.presentation.util.toDurationString
+import eu.kanade.tachiyomi.util.system.copyToClipboard
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.material.padding
 import tachiyomi.presentation.core.i18n.stringResource
@@ -189,7 +190,7 @@ private fun AiIntelligenceSection(
                     Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                         IconButton(
                             onClick = {
-                                eu.kanade.tachiyomi.util.system.copyToClipboard(context, analysis)
+                                context.copyToClipboard("Mihon AI Analysis", analysis)
                             },
                             modifier = Modifier.size(32.dp)
                         ) {
