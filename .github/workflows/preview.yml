@@ -150,8 +150,11 @@ jobs:
           mkdir -p .github && echo "$SUMMARY" > .github/AI_NOTE_ACCUMULATOR
 
       - name: Build Preview APK
-        run: ./gradlew assembleRelease -Pinclude-telemetry=false -Penable-updater=false -PabiList=arm64-v8a --no-daemon
+        run: |
+          echo "${{ secrets.SIGNING_RELEASE_KEYSTORE }}" | base64 -d > release.jks
+          ./gradlew assembleRelease -Pinclude-telemetry=false -Penable-updater=false -PabiList=arm64-v8a --no-daemon
         env:
+          SIGNING_STORE_FILE: release.jks
           SIGNING_STORE_PASSWORD: ${{ secrets.SIGNING_STORE_PASSWORD }}
           SIGNING_KEY_ALIAS: ${{ secrets.SIGNING_KEY_ALIAS }}
           SIGNING_KEY_PASSWORD: ${{ secrets.SIGNING_KEY_PASSWORD }}

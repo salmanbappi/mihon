@@ -51,8 +51,11 @@ jobs:
           git push origin master
 
       - name: Build Release APK
-        run: ./gradlew assembleRelease -Pinclude-telemetry=false -Penable-updater=false --no-daemon
+        run: |
+          echo "${{ secrets.SIGNING_RELEASE_KEYSTORE }}" | base64 -d > release.jks
+          ./gradlew assembleRelease -Pinclude-telemetry=false -Penable-updater=false --no-daemon
         env:
+          SIGNING_STORE_FILE: release.jks
           SIGNING_STORE_PASSWORD: ${{ secrets.SIGNING_STORE_PASSWORD }}
           SIGNING_KEY_ALIAS: ${{ secrets.SIGNING_KEY_ALIAS }}
           SIGNING_KEY_PASSWORD: ${{ secrets.SIGNING_KEY_PASSWORD }}

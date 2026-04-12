@@ -38,6 +38,18 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
+    signingConfigs {
+        create("release") {
+            val keystore = System.getenv("SIGNING_STORE_FILE")
+            if (keystore != null) {
+                storeFile = file(keystore)
+                storePassword = System.getenv("SIGNING_STORE_PASSWORD")
+                keyAlias = System.getenv("SIGNING_KEY_ALIAS")
+                keyPassword = System.getenv("SIGNING_KEY_PASSWORD")
+            }
+        }
+    }
+
     buildTypes {
         val debug by getting {
             applicationIdSuffix = ".dev"
@@ -55,6 +67,8 @@ android {
             buildConfigField("String", "BUILD_TIME", "\"${getBuildTime(useLatestCommitTime = true)}\"")
             manifestPlaceholders["appIcon"] = "@mipmap/ic_launcher"
             manifestPlaceholders["appIconRound"] = "@mipmap/ic_launcher"
+
+            signingConfig = signingConfigs.getByName("release")
         }
 
         val commonMatchingFallbacks = listOf(release.name)
@@ -66,6 +80,7 @@ android {
             manifestPlaceholders["appIcon"] = "@mipmap/ic_launcher_preview"
             manifestPlaceholders["appIconRound"] = "@mipmap/ic_launcher_preview"
             matchingFallbacks += commonMatchingFallbacks
+            signingConfig = signingConfigs.getByName("release")
         }
 
         create("beta") {
@@ -75,6 +90,7 @@ android {
             manifestPlaceholders["appIcon"] = "@mipmap/ic_launcher_preview"
             manifestPlaceholders["appIconRound"] = "@mipmap/ic_launcher_preview"
             matchingFallbacks += commonMatchingFallbacks
+            signingConfig = signingConfigs.getByName("release")
         }
 
         create("foss") {
