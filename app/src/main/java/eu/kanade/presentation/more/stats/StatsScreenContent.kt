@@ -1,7 +1,9 @@
 package eu.kanade.presentation.more.stats
 
+import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -19,19 +21,11 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Extension
-import androidx.compose.material.icons.outlined.History
-import androidx.compose.material.icons.outlined.LocalLibrary
-import androidx.compose.material.icons.outlined.Schedule
-import androidx.compose.material.icons.outlined.Star
-import androidx.compose.material3.ElevatedCard
-import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
+import androidx.compose.material.icons.outlined.*
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
@@ -46,14 +40,21 @@ import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import eu.kanade.presentation.components.MarkdownRender
 import eu.kanade.presentation.more.stats.data.StatsData
 import eu.kanade.presentation.util.toDurationString
+import tachiyomi.domain.ai.AiPreferences
+import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.material.padding
+import tachiyomi.presentation.core.i18n.stringResource
 import tachiyomi.presentation.core.util.secondaryItemAlpha
+import uy.kohesive.injekt.Injekt
+import uy.kohesive.injekt.api.get
 import kotlin.math.cos
 import kotlin.math.sin
 import kotlin.time.DurationUnit
@@ -63,8 +64,13 @@ import kotlin.time.toDuration
 fun StatsScreenContent(
     state: StatsScreenState.Success,
     paddingValues: PaddingValues,
+    onGenerateAiAnalysis: () -> Unit,
+    onRegenerateAiAnalysis: () -> Unit,
 ) {
     val statListState = rememberLazyListState()
+    val aiPreferences = remember { Injekt.get<eu.kanade.domain.ai.AiPreferences>() }
+    val enableAi by aiPreferences.enableAi().collectAsState()
+    val enableAiStatistics by aiPreferences.enableAiStatistics().collectAsState()
 
     LazyColumn(
         state = statListState,
@@ -75,6 +81,17 @@ fun StatsScreenContent(
             .background(MaterialTheme.colorScheme.background)
             .padding(horizontal = MaterialTheme.padding.medium),
     ) {
+        if (enableAi && enableAiStatistics) {
+            item {
+                AiIntelligenceSection(
+                    analysis = state.aiAnalysis ?: state.streamingAnalysis,
+                    isLoading = state.isAiLoading,
+                    onGenerate = onGenerateAiAnalysis,
+                    onRegenerate = onRegenerateAiAnalysis
+                )
+            }
+        }
+
         item {
             ProfileHeaderSection(state)
         }
@@ -101,6 +118,113 @@ fun StatsScreenContent(
 
         item {
             ReadHabitsSection(state.readHabits)
+        }
+    }
+}
+
+@Composable
+private fun AiIntelligenceSection(
+    analysis: String?,
+    isLoading: Boolean,
+    onGenerate: () -> Unit,
+    onRegenerate: () -> Unit,
+) {
+    var expanded by remember { mutableStateOf(false) }
+    val context = LocalContext.current
+    
+    StatsSectionCard(
+        title = "Behavioral Analytics",
+        modifier = Modifier.clickable(enabled = analysis != null) { expanded = !expanded }
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .animateContentSize()
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.padding(16.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Outlined.AutoAwesome,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.secondary,
+                    modifier = Modifier.size(20.dp)
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = when {
+                            isLoading && analysis.isNullOrBlank() -> "Processing system data..."
+                            analysis != null -> "Analytical Summary"
+                            else -> "Generate behavioral insight"
+                        },
+                        style = MaterialTheme.typography.labelLarge,
+                        color = if (analysis != null) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
+                    )
+                    if (analysis == null && !isLoading) {
+                        Text(
+                            text = "AI will analyze your reading patterns",
+                            style = MaterialTheme.typography.bodySmall,
+                            modifier = Modifier.secondaryItemAlpha()
+                        )
+                    }
+                }
+                
+                if (analysis == null && isLoading) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(16.dp),
+                        strokeWidth = 2.dp,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                } else if (analysis == null) {
+                    TextButton(
+                        onClick = onGenerate,
+                        modifier = Modifier.padding(start = 8.dp)
+                    ) {
+                        Text("Generate")
+                    }
+                } else {
+                    Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                        IconButton(
+                            onClick = {
+                                eu.kanade.tachiyomi.util.system.copyToClipboard(context, "Mihon AI Analysis", analysis)
+                            },
+                            modifier = Modifier.size(32.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Outlined.ContentCopy,
+                                contentDescription = "Copy",
+                                modifier = Modifier.size(18.dp),
+                                tint = MaterialTheme.colorScheme.primary
+                            )
+                        }
+                        IconButton(
+                            onClick = onRegenerate,
+                            enabled = !isLoading,
+                            modifier = Modifier.size(32.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Outlined.Refresh,
+                                contentDescription = "Regenerate",
+                                modifier = Modifier.size(18.dp),
+                                tint = if (isLoading) MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f) else MaterialTheme.colorScheme.primary
+                            )
+                        }
+                    }
+                }
+            }
+            if (expanded && analysis != null) {
+                HorizontalDivider(modifier = Modifier.alpha(0.2f))
+                Box(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
+                    SelectionContainer {
+                        MarkdownRender(
+                            content = analysis,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
+                }
+            }
         }
     }
 }

@@ -27,6 +27,10 @@ class AiPreferences(
     fun enableAiStatistics() = preferenceStore.getBoolean("enable_ai_statistics", true)
     fun lastStatsAnalysis() = preferenceStore.getString("last_stats_analysis", "")
 
+    // Profile
+    fun profilePhotoUri() = preferenceStore.getString("profile_photo_uri", "")
+    fun displayName() = preferenceStore.getString("display_name", "Explorer")
+
     // Circuit Breaker
     fun lastAiRequestTime() = preferenceStore.getLong("last_ai_request_time", 0L)
     fun hourlyAiRequestCount() = preferenceStore.getInt("hourly_ai_request_count", 0)

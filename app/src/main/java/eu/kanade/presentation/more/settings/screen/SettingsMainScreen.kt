@@ -9,6 +9,7 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ChromeReaderMode
+import androidx.compose.material.icons.outlined.AutoAwesome
 import androidx.compose.material.icons.outlined.Code
 import androidx.compose.material.icons.outlined.CollectionsBookmark
 import androidx.compose.material.icons.outlined.Explore
@@ -145,9 +146,14 @@ object SettingsMainScreen : Screen() {
                             }
                         }
                         CompositionLocalProvider(LocalContentColor provides contentColor) {
+                            val title = if (item.screen is SettingsAiScreen) {
+                                (item.screen as SettingsAiScreen).getTitle()
+                            } else {
+                                stringResource(item.titleRes)
+                            }
                             TextPreferenceWidget(
                                 modifier = modifier,
-                                title = stringResource(item.titleRes),
+                                title = title,
                                 subtitle = item.formatSubtitle(),
                                 icon = item.icon,
                                 onPreferenceClick = { navigator.navigate(item.screen, twoPane) },
@@ -213,6 +219,12 @@ object SettingsMainScreen : Screen() {
             subtitleRes = MR.strings.pref_backup_summary,
             icon = Icons.Outlined.Storage,
             screen = SettingsDataScreen,
+        ),
+        Item(
+            titleRes = MR.strings.pref_category_advanced, // Fallback
+            formatSubtitle = { "LLM backend and data processing" },
+            icon = Icons.Outlined.AutoAwesome,
+            screen = SettingsAiScreen,
         ),
         Item(
             titleRes = MR.strings.pref_category_security,

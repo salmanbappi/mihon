@@ -20,5 +20,8 @@ sealed interface StatsScreenState {
         val scores: StatsData.ScoreDistribution,
         val statuses: StatsData.StatusBreakdown,
         val feedActivity: StatsData.FeedActivity? = null,
+        val aiAnalysis: String? = null,
+        val isAiLoading: Boolean = false,
+        val streamingAnalysis: String? = null,
     ) : StatsScreenState
 }

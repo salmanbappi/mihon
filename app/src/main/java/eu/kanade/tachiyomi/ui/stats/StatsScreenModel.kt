@@ -5,9 +5,11 @@ import androidx.compose.ui.util.fastFilter
 import cafe.adriel.voyager.core.model.StateScreenModel
 import cafe.adriel.voyager.core.model.screenModelScope
 import eu.kanade.core.util.fastCountNot
+import eu.kanade.domain.ai.AiPreferences
 import eu.kanade.presentation.more.stats.StatsScreenState
 import eu.kanade.presentation.more.stats.data.ExtensionInfo
 import eu.kanade.presentation.more.stats.data.StatsData
+import eu.kanade.tachiyomi.data.ai.AiManager
 import eu.kanade.tachiyomi.data.download.DownloadManager
 import eu.kanade.tachiyomi.data.track.TrackerManager
 import eu.kanade.tachiyomi.extension.ExtensionManager
@@ -41,6 +43,8 @@ class StatsScreenModel(
     private val trackerManager: TrackerManager = Injekt.get(),
     private val sourceManager: SourceManager = Injekt.get(),
     private val extensionManager: ExtensionManager = Injekt.get(),
+    private val aiManager: AiManager = Injekt.get(),
+    private val aiPreferences: AiPreferences = Injekt.get(),
 ) : StateScreenModel<StatsScreenState>(StatsScreenState.Loading) {
 
     private val loggedInTrackers by lazy { trackerManager.loggedInTrackers() }
@@ -178,7 +182,69 @@ class StatsScreenModel(
                     readHabits = readHabits,
                     scores = scoreDistribution,
                     statuses = statusBreakdown,
+                    aiAnalysis = aiPreferences.lastStatsAnalysis().get().takeIf { it.isNotBlank() },
                 )
+            }
+        }
+    }
+
+    fun generateAiAnalysis() {
+        val currentState = state.value
+        if (currentState !is StatsScreenState.Success || currentState.aiAnalysis != null || currentState.isAiLoading) return
+        startAiAnalysis(currentState)
+    }
+
+    fun regenerateAiAnalysis() {
+        val currentState = state.value
+        if (currentState !is StatsScreenState.Success || currentState.isAiLoading) return
+        startAiAnalysis(currentState)
+    }
+
+    private fun startAiAnalysis(currentState: StatsScreenState.Success) {
+        mutableState.update {
+            if (it is StatsScreenState.Success) it.copy(
+                isAiLoading = true,
+                streamingAnalysis = "",
+                aiAnalysis = null
+            ) else it
+        }
+
+        val summary = """
+            Library Size: ${currentState.overview.libraryMangaCount}
+            Completed: ${currentState.overview.completedMangaCount}
+            Read Chapters: ${currentState.chapters.readChapterCount}
+            Top Genres: ${currentState.genreAffinity.genreScores.joinToString { "${it.first} (${it.second})" }}
+            Mean Score: ${currentState.trackers.meanScore}
+            Read Habits: ${currentState.readHabits.preferredReadTime} cycle, ${currentState.readHabits.avgSessionsPerWeek} sessions/week
+        """.trimIndent()
+
+        screenModelScope.launchIO {
+            val fullAnalysis = StringBuilder()
+            try {
+                aiManager.getStatisticsAnalysisStream(summary).collect { chunk ->
+                    fullAnalysis.append(chunk)
+                    mutableState.update {
+                        if (it is StatsScreenState.Success) it.copy(streamingAnalysis = fullAnalysis.toString()) else it
+                    }
+                }
+                val finalResult = fullAnalysis.toString()
+                if (finalResult.isNotBlank()) {
+                    aiPreferences.lastStatsAnalysis().set(finalResult)
+                    mutableState.update {
+                        if (it is StatsScreenState.Success) it.copy(
+                            aiAnalysis = finalResult,
+                            isAiLoading = false,
+                            streamingAnalysis = null
+                        ) else it
+                    }
+                }
+            } catch (e: Exception) {
+                mutableState.update {
+                    if (it is StatsScreenState.Success) it.copy(
+                        isAiLoading = false,
+                        streamingAnalysis = null
+                    ) else it
+                }
             }
         }
     }

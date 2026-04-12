@@ -39,6 +39,7 @@ fun MoreScreen(
     onClickCategories: () -> Unit,
     onClickStats: () -> Unit,
     onClickExtensionHealth: () -> Unit,
+    onClickAiAssistant: () -> Unit,
     onClickDataAndStorage: () -> Unit,
     onClickSettings: () -> Unit,
     onClickAbout: () -> Unit,
@@ -119,9 +120,23 @@ fun MoreScreen(
             item {
                 TextPreferenceWidget(
                     title = "Extension Health",
-                    icon = Icons.Outlined.QueryStats,
+                    icon = Icons.Outlined.Analytics,
                     onPreferenceClick = onClickExtensionHealth,
                 )
+            }
+            
+            val aiPreferences = remember { Injekt.get<eu.kanade.domain.ai.AiPreferences>() }
+            val enableAi by aiPreferences.enableAi().collectAsState()
+            val enableAiAssistant by aiPreferences.enableAiAssistant().collectAsState()
+            
+            if (enableAi && enableAiAssistant) {
+                item {
+                    TextPreferenceWidget(
+                        title = "AI Diagnosis",
+                        icon = Icons.Outlined.AutoAwesome,
+                        onPreferenceClick = onClickAiAssistant,
+                    )
+                }
             }
             item {
                 TextPreferenceWidget(

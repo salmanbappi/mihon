@@ -41,6 +41,8 @@ class StatsScreen : Screen() {
             StatsScreenContent(
                 state = state as StatsScreenState.Success,
                 paddingValues = paddingValues,
+                onGenerateAiAnalysis = screenModel::generateAiAnalysis,
+                onRegenerateAiAnalysis = screenModel::regenerateAiAnalysis,
             )
         }
     }
