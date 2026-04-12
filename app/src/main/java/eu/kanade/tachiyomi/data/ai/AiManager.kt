@@ -8,6 +8,7 @@ import eu.kanade.tachiyomi.network.NetworkHelper
 import com.hippo.unifile.UniFile
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.first
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import okhttp3.MediaType.Companion.toMediaType
@@ -18,6 +19,7 @@ import tachiyomi.core.common.util.system.logcat
 import logcat.LogPriority
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
+import tachiyomi.domain.storage.service.StorageManager
 import java.io.File
 import java.io.BufferedReader
 import java.io.InputStreamReader
@@ -57,16 +59,7 @@ class AiManager(
         }
 
         val customPrompt = aiPreferences.aiSystemPrompt().get()
-        val defaultSystemInstruction = """
-            You are the 'Mihon System Assistant', a senior systems engineer.
-            You have access to native diagnostic tools for logs, system maps, and the user's manga library.
-            
-            OPERATIONAL PROTOCOLS:
-            1. FORMATTING: STRICTLY NO TABLES. Use bullet points or lists for structured data. NEVER output Markdown tables.
-            2. GROUNDING: Provide actionable manga-centric system insights.
-        """.trimIndent()
-        
-        val systemInstruction = if (customPrompt.isNotBlank()) customPrompt else defaultSystemInstruction
+        val systemInstruction = if (customPrompt.isNotBlank()) customPrompt else getSystemInstruction()
 
         val messages = history.toMutableList()
         messages.add(ChatMessage(role = "user", content = query))
@@ -85,17 +78,58 @@ class AiManager(
         }
     }
 
+    private fun getSystemInstruction(): String {
+        return """
+            You are the 'Mihon System Assistant', a senior software reliability engineer.
+            Your responses MUST be grounded in the provided technical data.
+            
+            GROUNDING PROTOCOLS:
+            1. DATA OVER HALLUCINATION: If [DIAGNOSTICS_DATA] or [USER_LIBRARY_DATA] is empty or missing, state that you cannot see those specific details yet. 
+            2. NO FAKE STATS: Never invent library counts, specific manga titles, or error history if not present in the context.
+            3. MIHON NAVIGATION: Use the [APP_NAVIGATION_GUIDE] to help users find settings.
+            
+            STRICT FORMATTING:
+            - NO MARKDOWN TABLES. 
+            - Use bullet points for lists.
+            - Keep responses technical but accessible.
+        """.trimIndent()
+    }
+
+    private fun getAppNavigationGuide(): String {
+        return """
+            [APP_NAVIGATION_GUIDE]:
+            - Library: Main screen showing manga.
+            - Updates: Recent chapter releases.
+            - History: Your reading timeline.
+            - Browse > Sources: Find and install extensions.
+            - More > Statistics: Detailed library analytics.
+            - More > Extension Health: Real-time status of endpoints.
+            - More > Settings > Advanced Analytics: AI configuration.
+        """.trimIndent()
+    }
+
     private suspend fun getLibrarySummary(): String {
         return try {
             val library = getLibraryManga.await()
-            if (library.isEmpty()) return "Library is empty."
-            library.take(50).joinToString("\n") { manga ->
-                "- ${manga.manga.title} [Status: ${manga.manga.status}, Read: ${manga.readCount}]"
+            if (library.isEmpty()) return "REAL_DATA: Library is currently empty."
+            val summary = library.take(40).joinToString("\n") { manga ->
+                "- ${manga.manga.title} [Status: ${manga.manga.status}, Unread: ${manga.unreadCount}]"
             }
+            "REAL_DATA (Total: ${library.size} titles):\n$summary"
         } catch (e: Exception) {
-            "Failed to retrieve library summary."
+            "DATA_ERROR: Failed to retrieve library summary."
         }
     }
+
+    private suspend fun getExtensionsSummary(): String {
+        return try {
+            val installed = extensionManager.installedExtensionsFlow.first()
+            if (installed.isEmpty()) return "REAL_DATA: No extensions installed."
+            installed.joinToString("\n") { "- ${it.name} v${it.versionName} [Update: ${it.hasUpdate}]" }
+        } catch (e: Exception) { "DATA_ERROR: Extensions inaccessible." }
+    }
+
+    private fun getDeviceInfo(): String = "Model: ${android.os.Build.MODEL}, SDK: ${android.os.Build.VERSION.SDK_INT}, App: Mihon v${BuildConfig.VERSION_NAME}"
 
     fun getStatisticsAnalysisStream(statsSummary: String): Flow<String> = flow {
         if (!aiPreferences.enableAi().get() || !aiPreferences.enableAiStatistics().get()) return@flow
@@ -110,16 +144,16 @@ class AiManager(
         }.ifBlank { return@flow }
 
         val prompt = """
-            Generate a 'System Behavioral Profile' based on the following data.
+            Generate a 'System Behavioral Profile' based on the following library data.
             
             DATA INPUT:
             $statsSummary
             
             REPORT STRUCTURE (STRICTLY NO TABLES):
-            - **User Classification**: Technical archetype (e.g., 'High-Volume Archivist').
-            - **Temporal Analysis**: Reading habit patterns.
+            - **User Classification**: Technical archetype based on data.
+            - **Reading Patterns**: Temporal analysis of reading habits.
             - **Source Integrity**: Distribution across extensions.
-            - **Strategic Recommendations**: 3-5 manga titles based on data patterns.
+            - **Strategic Recommendations**: 3-5 manga titles based on provided genres.
             
             Constraint: Use bullet points. Do NOT use Markdown tables.
         """.trimIndent()
@@ -190,7 +224,7 @@ class AiManager(
 
             val packagePattern = "(eu\\.kanade|app\\.mihon|ffmpeg|AndroidRuntime|libc|DEBUG|System\\.err|FileUtils|ActivityThread)".toRegex()
             val sanitized = logLines.filter { it.contains(packagePattern) }.takeLast(100).joinToString("\n")
-            sanitized.ifBlank { "No relevant application logs found." }
+            sanitized.ifBlank { "REAL_DATA: No relevant application logs found." }
         } catch (e: Exception) {
             "Diagnostic retrieval failed: ${e.message}"
         }
@@ -219,12 +253,16 @@ class AiManager(
         val finalMessages = if (withTools) {
             val lastQuery = messages.last().content.lowercase()
             val toolContext = StringBuilder()
-            if (lastQuery.contains("""log|error|fail|load|setting|where|how|device|black|broke|froze|slow|crash|die|dead|bug|stuck|lag|hang|freeze""".toRegex())) {
+            
+            toolContext.append("\n[SYSTEM_CONTEXT]:\n${getDeviceInfo()}\n${getAppNavigationGuide()}\n")
+            
+            if (lastQuery.contains("""log|error|fail|load|setting|where|how|device|black|broke|froze|slow|crash|die|dead|bug|stuck|lag|hang|freeze|status|help""".toRegex())) {
                 if (aiPreferences.aiAssistantLogs().get()) {
                     toolContext.append("\n[DIAGNOSTICS_DATA]:\n${getSanitizedLogs()}\n")
+                    toolContext.append("\n[INSTALLED_EXTENSIONS]:\n${getExtensionsSummary()}\n")
                 }
             }
-            if (lastQuery.contains("""library|manga|collection|have|my|list|recommend""".toRegex())) {
+            if (lastQuery.contains("""library|manga|collection|have|my|list|recommend|read""".toRegex())) {
                 if (aiPreferences.aiAssistantLibrary().get()) {
                     toolContext.append("\n[USER_LIBRARY_DATA]:\n${getLibrarySummary()}\n")
                 }
@@ -282,7 +320,24 @@ class AiManager(
     ): Flow<String> = flow {
         val groqMessages = mutableListOf<GroqMessage>()
         if (systemInstruction != null) groqMessages.add(GroqMessage(role = "system", content = systemInstruction))
-        messages.forEach { msg -> groqMessages.add(GroqMessage(role = if (msg.role == "user") "user" else "assistant", content = msg.content)) }
+        
+        val finalQuery = if (withTools) {
+            val lastQuery = messages.last().content.lowercase()
+            val toolContext = StringBuilder()
+            toolContext.append("\n[SYSTEM_CONTEXT]:\n${getDeviceInfo()}\n${getAppNavigationGuide()}\n")
+            if (lastQuery.contains("""log|error|fail|load|setting|where|how|device|black|broke|froze|slow|crash|die|dead|bug|stuck|lag|hang|freeze|status|help""".toRegex())) {
+                toolContext.append("\n[DIAGNOSTICS_DATA]:\n${getSanitizedLogs()}\n")
+            }
+            if (lastQuery.contains("""library|manga|collection|have|my|list|recommend|read""".toRegex())) {
+                toolContext.append("\n[USER_LIBRARY_DATA]:\n${getLibrarySummary()}\n")
+            }
+            messages.last().content + "\n\n" + toolContext.toString()
+        } else messages.last().content
+
+        messages.dropLast(1).forEach { msg -> 
+            groqMessages.add(GroqMessage(role = if (msg.role == "user") "user" else "assistant", content = msg.content)) 
+        }
+        groqMessages.add(GroqMessage(role = "user", content = finalQuery))
         
         val requestBody = GroqRequest(messages = groqMessages, model = "llama-3.3-70b-versatile", stream = true)
         val request = Request.Builder()
