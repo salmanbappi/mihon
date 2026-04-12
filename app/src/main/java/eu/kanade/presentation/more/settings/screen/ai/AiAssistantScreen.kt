@@ -133,7 +133,20 @@ class AiAssistantScreen : Screen() {
                                     screenModel.switchSession(session.id)
                                     scope.launch { drawerState.close() }
                                 },
-                                modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding)
+                                modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding),
+                                badge = {
+                                    IconButton(
+                                        onClick = { screenModel.deleteSession(session.id) },
+                                        modifier = Modifier.size(24.dp)
+                                    ) {
+                                        Icon(
+                                            Icons.Default.Delete, 
+                                            null, 
+                                            modifier = Modifier.size(16.dp),
+                                            tint = MaterialTheme.colorScheme.error.copy(alpha = 0.6f)
+                                        )
+                                    }
+                                }
                             )
                         }
                     }
@@ -234,7 +247,8 @@ class AiAssistantScreen : Screen() {
                             onSend = {
                                 screenModel.sendMessage(input)
                                 input = ""
-                            }
+                            },
+                            modifier = Modifier.navigationBarsPadding()
                         )
                     }
                 }
