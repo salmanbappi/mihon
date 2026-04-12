@@ -146,8 +146,8 @@ object SettingsMainScreen : Screen() {
                             }
                         }
                         CompositionLocalProvider(LocalContentColor provides contentColor) {
-                            val title = if (item.screen is SettingsAiScreen) {
-                                (item.screen as SettingsAiScreen).getTitle()
+                            val title = if (item.screen == SettingsAiScreen) {
+                                SettingsAiScreen.getTitle()
                             } else {
                                 stringResource(item.titleRes)
                             }
