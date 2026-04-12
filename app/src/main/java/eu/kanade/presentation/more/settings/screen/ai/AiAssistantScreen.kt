@@ -247,7 +247,8 @@ class AiAssistantScreen : Screen() {
                             onSend = {
                                 screenModel.sendMessage(input)
                                 input = ""
-                            }
+                            },
+                            modifier = Modifier.navigationBarsPadding()
                         )
                     }
                 }
@@ -301,14 +302,15 @@ class AiAssistantScreen : Screen() {
         value: String,
         onValueChange: (String) -> Unit,
         isLoading: Boolean,
-        onSend: () -> Unit
+        onSend: () -> Unit,
+        modifier: Modifier = Modifier
     ) {
         val primaryColor = MaterialTheme.colorScheme.primary
         val surfaceColor = MaterialTheme.colorScheme.surfaceContainerHigh
 
         Surface(
             tonalElevation = 2.dp,
-            modifier = Modifier
+            modifier = modifier
                 .fillMaxWidth()
                 .windowInsetsPadding(WindowInsets.ime)
                 .padding(bottom = 4.dp),
