@@ -45,6 +45,7 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import coil3.compose.AsyncImage
 import eu.kanade.domain.ai.AiPreferences
 import eu.kanade.presentation.components.MarkdownRender
 import eu.kanade.presentation.more.stats.data.StatsData
@@ -83,6 +84,10 @@ fun StatsScreenContent(
             .background(MaterialTheme.colorScheme.background)
             .padding(horizontal = MaterialTheme.padding.medium),
     ) {
+        item {
+            ProfileHeaderSection(state)
+        }
+
         if (enableAi && enableAiStatistics) {
             item {
                 AiIntelligenceSection(
@@ -92,10 +97,6 @@ fun StatsScreenContent(
                     onRegenerate = onRegenerateAiAnalysis
                 )
             }
-        }
-
-        item {
-            ProfileHeaderSection(state)
         }
 
         item {
@@ -120,6 +121,66 @@ fun StatsScreenContent(
 
         item {
             ReadHabitsSection(state.readHabits)
+        }
+    }
+}
+
+@Composable
+private fun ProfileHeaderSection(state: StatsScreenState.Success) {
+    val aiPreferences = remember { Injekt.get<AiPreferences>() }
+    val displayName by aiPreferences.displayName().collectAsState()
+    val profilePhotoUri by aiPreferences.profilePhotoUri().collectAsState()
+
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = MaterialTheme.shapes.large,
+        color = MaterialTheme.colorScheme.surfaceContainerLow,
+        tonalElevation = 2.dp
+    ) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally, 
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(24.dp)
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(80.dp)
+                    .clip(CircleShape)
+                    .background(MaterialTheme.colorScheme.primaryContainer),
+                contentAlignment = Alignment.Center
+            ) {
+                if (profilePhotoUri.isNotEmpty()) {
+                    AsyncImage(
+                        model = profilePhotoUri,
+                        contentDescription = null,
+                        modifier = Modifier.fillMaxSize(),
+                        contentScale = androidx.compose.ui.layout.ContentScale.Crop
+                    )
+                } else {
+                    Icon(
+                        imageVector = Icons.Outlined.LocalLibrary,
+                        contentDescription = null,
+                        modifier = Modifier.size(40.dp),
+                        tint = MaterialTheme.colorScheme.primary
+                    )
+                }
+            }
+            Spacer(modifier = Modifier.height(16.dp))
+            Text(
+                text = displayName,
+                style = MaterialTheme.typography.headlineSmall,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+            Text(
+                text = "${state.overview.libraryMangaCount} Titles in Collection",
+                style = MaterialTheme.typography.bodyMedium.copy(
+                    fontFamily = FontFamily.Monospace
+                ),
+                modifier = Modifier.secondaryItemAlpha(),
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
         }
     }
 }
@@ -227,53 +288,6 @@ private fun AiIntelligenceSection(
                     }
                 }
             }
-        }
-    }
-}
-
-@Composable
-private fun ProfileHeaderSection(state: StatsScreenState.Success) {
-    Surface(
-        modifier = Modifier.fillMaxWidth(),
-        shape = MaterialTheme.shapes.large,
-        color = MaterialTheme.colorScheme.surfaceContainerLow,
-        tonalElevation = 2.dp
-    ) {
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally, 
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(24.dp)
-        ) {
-            Box(
-                modifier = Modifier
-                    .size(80.dp)
-                    .clip(CircleShape)
-                    .background(MaterialTheme.colorScheme.primaryContainer),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    imageVector = Icons.Outlined.LocalLibrary,
-                    contentDescription = null,
-                    modifier = Modifier.size(40.dp),
-                    tint = MaterialTheme.colorScheme.primary
-                )
-            }
-            Spacer(modifier = Modifier.height(16.dp))
-            Text(
-                text = "Library Statistics",
-                style = MaterialTheme.typography.headlineSmall,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onSurface
-            )
-            Text(
-                text = "${state.overview.libraryMangaCount} Titles in Collection",
-                style = MaterialTheme.typography.bodyMedium.copy(
-                    fontFamily = FontFamily.Monospace
-                ),
-                modifier = Modifier.secondaryItemAlpha(),
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
         }
     }
 }

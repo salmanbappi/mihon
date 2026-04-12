@@ -21,8 +21,7 @@ class AiAssistantScreenModel(
     val sessions: StateFlow<List<AiSession>> = _sessions.asStateFlow()
 
     init {
-        // Simple mock session for now, Anizen uses a DB for this
-        _sessions.value = listOf(AiSession(1, "Current Diagnostic Session"))
+        _sessions.value = listOf(AiSession(1, "Diagnostic Uplink"))
         mutableState.update { it.copy(activeSessionId = 1) }
     }
 
@@ -41,8 +40,7 @@ class AiAssistantScreenModel(
         screenModelScope.launchIO {
             try {
                 val history = state.value.messages.dropLast(1).map { AiManager.ChatMessage(it.role, it.content) }
-                // Use a proper chat stream if available, or fallback to diagnostics for now
-                aiManager.getDiagnosticAnalysisStream(query).collect { chunk ->
+                aiManager.chatWithAssistantStream(query, history).collect { chunk ->
                     mutableState.update { 
                         it.copy(streamingMessage = (it.streamingMessage ?: "") + chunk)
                     }

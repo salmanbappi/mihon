@@ -2,8 +2,10 @@ package eu.kanade.tachiyomi.data.ai
 
 import android.content.Context
 import eu.kanade.domain.ai.AiPreferences
+import eu.kanade.tachiyomi.BuildConfig
 import eu.kanade.tachiyomi.extension.ExtensionManager
 import eu.kanade.tachiyomi.network.NetworkHelper
+import com.hippo.unifile.UniFile
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import kotlinx.serialization.Serializable
@@ -14,9 +16,10 @@ import okhttp3.RequestBody.Companion.toRequestBody
 import tachiyomi.core.common.util.lang.withIOContext
 import tachiyomi.core.common.util.system.logcat
 import logcat.LogPriority
-import tachiyomi.domain.manga.interactor.GetLibraryManga
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
+import tachiyomi.domain.storage.service.StorageManager
+import java.io.File
 import java.io.BufferedReader
 import java.io.InputStreamReader
 import java.util.concurrent.TimeUnit
@@ -26,7 +29,7 @@ class AiManager(
     private val networkHelper: NetworkHelper = Injekt.get(),
     private val aiPreferences: AiPreferences = Injekt.get(),
     private val extensionManager: ExtensionManager = Injekt.get(),
-    private val getLibraryManga: GetLibraryManga = Injekt.get(),
+    private val getLibraryManga: tachiyomi.domain.manga.interactor.GetLibraryManga = Injekt.get(),
     private val json: Json = Injekt.get(),
 ) {
     private val jsonMediaType = "application/json; charset=utf-8".toMediaType()
@@ -36,14 +39,8 @@ class AiManager(
         aiPreferences.isRequestPending().set(false)
     }
 
-    suspend fun getStatisticsAnalysis(statsSummary: String): String? {
-        val result = StringBuilder()
-        getStatisticsAnalysisStream(statsSummary).collect { result.append(it) }
-        return result.toString().ifBlank { null }
-    }
-
-    fun getStatisticsAnalysisStream(statsSummary: String): Flow<String> = flow {
-        if (!aiPreferences.enableAi().get() || !aiPreferences.enableAiStatistics().get()) return@flow
+    fun chatWithAssistantStream(query: String, history: List<ChatMessage>): Flow<String> = flow {
+        if (!aiPreferences.enableAi().get() || !aiPreferences.enableAiAssistant().get()) return@flow
         
         if (isCircuitBreakerTripped()) {
             emit("Stability Alert: AI temporarily disabled due to detected app instability. [RESET_REQUIRED]")
@@ -56,19 +53,72 @@ class AiManager(
         } else {
             aiPreferences.groqApiKey().get()
         }.ifBlank { 
-            emit("Please set an AI API Key in Settings > Advanced")
+            emit("Please set an API Key in Settings > Advanced Analytics")
             return@flow 
         }
 
+        val customPrompt = aiPreferences.aiSystemPrompt().get()
+        val defaultSystemInstruction = """
+            You are the 'Mihon System Assistant', a senior systems engineer.
+            You have access to native diagnostic tools for logs, system maps, and the user's manga library.
+            
+            OPERATIONAL PROTOCOLS:
+            1. FORMATTING: STRICTLY NO TABLES. Use bullet points or lists for structured data. NEVER output Markdown tables.
+            2.Grounding: Provide actionable manga-centric system insights.
+        """.trimIndent()
+        
+        val systemInstruction = if (customPrompt.isNotBlank()) customPrompt else defaultSystemInstruction
+
+        val messages = history.toMutableList()
+        messages.add(ChatMessage(role = "user", content = query))
+
+        aiPreferences.isRequestPending().set(true)
+        
+        try {
+            if (engine == "gemini") {
+                callGeminiStream(messages, apiKey, systemInstruction, withTools = true).collect { emit(it) }
+            } else {
+                callGroqStream(messages, apiKey, systemInstruction, withTools = true).collect { emit(it) }
+            }
+        } finally {
+            aiPreferences.isRequestPending().set(false)
+            recordRequestSuccess()
+        }
+    }
+
+    private suspend fun getLibrarySummary(): String {
+        return try {
+            val library = getLibraryManga.await()
+            if (library.isEmpty()) return "Library is empty."
+            library.take(50).joinToString("\n") { manga ->
+                "- ${manga.manga.title} [Status: ${manga.manga.status}, Read: ${manga.readCount}]"
+            }
+        } catch (e: Exception) {
+            "Failed to retrieve library summary."
+        }
+    }
+
+    fun getStatisticsAnalysisStream(statsSummary: String): Flow<String> = flow {
+        if (!aiPreferences.enableAi().get() || !aiPreferences.enableAiStatistics().get()) return@flow
+        
+        if (isCircuitBreakerTripped()) return@flow
+
+        val engine = aiPreferences.aiEngine().get()
+        val apiKey = if (engine == "gemini") {
+            aiPreferences.geminiApiKey().get()
+        } else {
+            aiPreferences.groqApiKey().get()
+        }.ifBlank { return@flow }
+
         val prompt = """
-            Generate a 'System Behavioral Profile' based on the following library data.
+            Generate a 'System Behavioral Profile' based on the following data.
             
             DATA INPUT:
             $statsSummary
             
             REPORT STRUCTURE (STRICTLY NO TABLES):
-            - **User Classification**: Technical archetype (e.g., 'High-Volume Collector').
-            - **Reading Patterns**: Temporal analysis of reading habits.
+            - **User Classification**: Technical archetype (e.g., 'High-Volume Archivist').
+            - **Temporal Analysis**: Reading habit patterns.
             - **Source Integrity**: Distribution across extensions.
             - **Strategic Recommendations**: 3-5 manga titles based on data patterns.
             
@@ -81,53 +131,6 @@ class AiManager(
                 callGeminiStream(listOf(ChatMessage(role = "user", content = prompt)), apiKey, "You are a senior behavioral data analyst.").collect { emit(it) }
             } else {
                 callGroqStream(listOf(ChatMessage(role = "user", content = prompt)), apiKey, "You are a senior behavioral data analyst.").collect { emit(it) }
-            }
-        } finally {
-            aiPreferences.isRequestPending().set(false)
-            recordRequestSuccess()
-        }
-    }
-
-    suspend fun getDiagnosticAnalysis(reportSummary: String): String? {
-        val result = StringBuilder()
-        getDiagnosticAnalysisStream(reportSummary).collect { result.append(it) }
-        return result.toString().ifBlank { null }
-    }
-
-    fun getDiagnosticAnalysisStream(reportSummary: String): Flow<String> = flow {
-        if (!aiPreferences.enableAi().get()) return@flow
-        
-        if (isCircuitBreakerTripped()) return@flow
-
-        val engine = aiPreferences.aiEngine().get()
-        val apiKey = if (engine == "gemini") aiPreferences.geminiApiKey().get() else aiPreferences.groqApiKey().get()
-        if (apiKey.isBlank()) return@flow
-
-        val logs = getSanitizedLogs()
-        val prompt = """
-            Perform a 'Deep System Diagnosis' on the following infrastructure report and logs.
-            
-            REPORT SUMMARY:
-            $reportSummary
-            
-            CRITICAL LOGS:
-            $logs
-            
-            DIAGNOSTIC REQUIREMENTS:
-            1. Identify failing nodes or degraded extensions.
-            2. Analyze log patterns for recurring network or rendering errors.
-            3. Provide 3 actionable steps to improve system stability.
-            4. If a 'SIGSEGV' or 'FATAL' is found, explain the likely cause.
-            
-            Constraint: STRICTLY NO TABLES. Use bullet points.
-        """.trimIndent()
-
-        aiPreferences.isRequestPending().set(true)
-        try {
-            if (engine == "gemini") {
-                callGeminiStream(listOf(ChatMessage(role = "user", content = prompt)), apiKey, "You are a senior systems reliability engineer.").collect { emit(it) }
-            } else {
-                callGroqStream(listOf(ChatMessage(role = "user", content = prompt)), apiKey, "You are a senior systems reliability engineer.").collect { emit(it) }
             }
         } finally {
             aiPreferences.isRequestPending().set(false)
@@ -153,57 +156,109 @@ class AiManager(
         try {
             val logLines = mutableListOf<String>()
             try {
-                val process = Runtime.getRuntime().exec("logcat -d -b main -t 300 *:W")
+                val process = Runtime.getRuntime().exec("logcat -d -b main -t 500 *:W")
                 val reader = BufferedReader(InputStreamReader(process.inputStream))
                 var line: String?
                 while (true) {
                     line = reader.readLine() ?: break
                     logLines.add(line)
                 }
-                process.waitFor(1, TimeUnit.SECONDS)
+                process.waitFor(2, TimeUnit.SECONDS)
                 process.destroy()
-            } catch (e: Exception) {
-                logcat(LogPriority.ERROR) { "AI Manager: Failed to retrieve logs: ${e.message}" }
+            } catch (e: Exception) {}
+
+            if (logLines.size < 10) {
+                val storageManager = Injekt.get<StorageManager>()
+                val internalLogDir = File(context.cacheDir, "logs")
+                val logDir = storageManager.getLogsDirectory() 
+                    ?: UniFile.fromFile(internalLogDir)
+                
+                val latestLog = logDir?.listFiles()
+                    ?.filter { it.isFile && it.name?.endsWith(".log") == true }
+                    ?.maxByOrNull { it.lastModified() }
+                
+                if (latestLog != null) {
+                    latestLog.openInputStream().bufferedReader().useLines { lines ->
+                        logLines.addAll(lines.toList().takeLast(500))
+                    }
+                }
             }
 
-            if (logLines.isEmpty()) {
-                return@withIOContext "Diagnostic retrieval active. No logs available via logcat in this environment."
-            }
-
-            val packagePattern = "(eu\\.kanade|app\\.mihon|AndroidRuntime|libc|DEBUG|System\\.err|FileUtils|ActivityThread)".toRegex()
+            val packagePattern = "(eu\\.kanade|app\\.mihon|ffmpeg|AndroidRuntime|libc|DEBUG|System\\.err|FileUtils|ActivityThread)".toRegex()
             val sanitized = logLines.filter { it.contains(packagePattern) }.takeLast(100).joinToString("\n")
             sanitized.ifBlank { "No relevant application logs found." }
         } catch (e: Exception) {
-            "Log retrieval failed: ${e.message}"
+            "Diagnostic retrieval failed: ${e.message}"
         }
+    }
+
+    suspend fun getErrorCount(): Int = withIOContext {
+        try {
+            val logLines = mutableListOf<String>()
+            val process = Runtime.getRuntime().exec("logcat -d -b main -t 200 *:E")
+            val reader = BufferedReader(InputStreamReader(process.inputStream))
+            while (true) {
+                val line = reader.readLine() ?: break
+                logLines.add(line)
+            }
+            val criticalPatterns = listOf("FATAL EXCEPTION", "OutOfMemoryError", "Native crash", "SIGSEGV", "Check failed")
+            logLines.count { line -> criticalPatterns.any { line.contains(it, ignoreCase = true) } }
+        } catch (e: Exception) { 0 }
     }
 
     private suspend fun callGeminiStream(
         messages: List<ChatMessage>, 
         apiKey: String, 
-        systemInstruction: String? = null
+        systemInstruction: String? = null,
+        withTools: Boolean = false
     ): Flow<String> = flow {
-        val geminiContents = messages.map { msg ->
+        val finalMessages = if (withTools) {
+            val lastQuery = messages.last().content.lowercase()
+            val toolContext = StringBuilder()
+            if (lastQuery.contains("""log|error|fail|load|setting|where|how|device|black|broke|froze|slow|crash|die|dead|bug|stuck|lag|hang|freeze""".toRegex())) {
+                if (aiPreferences.aiAssistantLogs().get()) {
+                    toolContext.append("\n[DIAGNOSTICS_DATA]:\n${getSanitizedLogs()}\n")
+                }
+            }
+            if (lastQuery.contains("""library|manga|collection|have|my|list|recommend""".toRegex())) {
+                if (aiPreferences.aiAssistantLibrary().get()) {
+                    toolContext.append("\n[USER_LIBRARY_DATA]:\n${getLibrarySummary()}\n")
+                }
+            }
+            messages.dropLast(1) + ChatMessage("user", messages.last().content + "\n\n" + toolContext.toString())
+        } else messages
+
+        val geminiContents = finalMessages.map { msg ->
             GeminiContent(parts = listOf(GeminiPart(text = msg.content)), role = if (msg.role == "user") "user" else "model")
         }
         val requestBody = GeminiRequest(
             contents = geminiContents, 
-            systemInstruction = systemInstruction?.let { GeminiContent(parts = listOf(GeminiPart(text = it))) }
+            systemInstruction = systemInstruction?.let { GeminiContent(parts = listOf(GeminiPart(text = it))) },
+            safetySettings = listOf(
+                GeminiSafetySetting("HARM_CATEGORY_HARASSMENT", "BLOCK_NONE"),
+                GeminiSafetySetting("HARM_CATEGORY_HATE_SPEECH", "BLOCK_NONE"),
+                GeminiSafetySetting("HARM_CATEGORY_SEXUALLY_EXPLICIT", "BLOCK_NONE"),
+                GeminiSafetySetting("HARM_CATEGORY_DANGEROUS_CONTENT", "BLOCK_NONE")
+            )
         )
         val request = Request.Builder()
-            .url("https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:streamGenerateContent?alt=sse&key=$apiKey")
+            .url("https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:streamGenerateContent?alt=sse&key=$apiKey")
             .header("Content-Type", "application/json")
             .post(json.encodeToString(GeminiRequest.serializer(), requestBody).toRequestBody(jsonMediaType))
             .build()
 
         try {
             networkHelper.client.newCall(request).execute().use { response ->
-                if (!response.isSuccessful) return@flow
+                if (!response.isSuccessful) {
+                    emit("Gemini Error ${response.code}")
+                    return@flow
+                }
                 val source = response.body.source()
                 while (!source.exhausted()) {
                     val line = source.readUtf8Line() ?: break
                     if (line.startsWith("data: ")) {
                         val data = line.substring(6).trim()
+                        if (data == "[DONE]") break
                         try {
                             val chunk = json.decodeFromString(GeminiResponse.serializer(), data)
                             val text = chunk.candidates.firstOrNull()?.content?.parts?.firstOrNull()?.text
@@ -212,14 +267,16 @@ class AiManager(
                     }
                 }
             }
-        } catch (e: Exception) {}
+        } catch (e: Exception) { emit("Gemini Exception: ${e.message}") }
     }
 
     private suspend fun callGroqStream(
         messages: List<ChatMessage>,
         apiKey: String,
-        systemInstruction: String? = null
+        systemInstruction: String? = null,
+        withTools: Boolean = false
     ): Flow<String> = flow {
+        // Simple port of Anizen's Groq streaming
         val groqMessages = mutableListOf<GroqMessage>()
         if (systemInstruction != null) groqMessages.add(GroqMessage(role = "system", content = systemInstruction))
         messages.forEach { msg -> groqMessages.add(GroqMessage(role = if (msg.role == "user") "user" else "assistant", content = msg.content)) }
@@ -234,7 +291,10 @@ class AiManager(
 
         try {
             networkHelper.client.newCall(request).execute().use { response ->
-                if (!response.isSuccessful) return@flow
+                if (!response.isSuccessful) {
+                    emit("Groq Error ${response.code}")
+                    return@flow
+                }
                 val source = response.body.source()
                 while (!source.exhausted()) {
                     val line = source.readUtf8Line() ?: break
@@ -249,7 +309,7 @@ class AiManager(
                     }
                 }
             }
-        } catch (e: Exception) {}
+        } catch (e: Exception) { emit("Groq Exception: ${e.message}") }
     }
 
     @Serializable
@@ -258,8 +318,12 @@ class AiManager(
     @Serializable
     private data class GeminiRequest(
         val contents: List<GeminiContent>, 
-        @kotlinx.serialization.SerialName("system_instruction") val systemInstruction: GeminiContent? = null
+        @kotlinx.serialization.SerialName("system_instruction") val systemInstruction: GeminiContent? = null,
+        val safetySettings: List<GeminiSafetySetting>? = null
     )
+
+    @Serializable
+    private data class GeminiSafetySetting(val category: String, val threshold: String)
 
     @Serializable
     private data class GeminiContent(val parts: List<GeminiPart>, val role: String? = null)
@@ -274,11 +338,7 @@ class AiManager(
     private data class GeminiCandidate(val content: GeminiContent)
 
     @Serializable
-    private data class GroqRequest(
-        val messages: List<GroqMessage>, 
-        val model: String,
-        val stream: Boolean = false
-    )
+    private data class GroqRequest(val messages: List<GroqMessage>, val model: String, val stream: Boolean = false)
 
     @Serializable
     private data class GroqMessage(val role: String, val content: String)
