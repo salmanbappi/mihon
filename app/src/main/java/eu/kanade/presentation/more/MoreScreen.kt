@@ -15,6 +15,7 @@ import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.outlined.Storage
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -131,12 +132,12 @@ fun MoreScreen(
                 )
             }
             
-            val aiPreferences = remember { Injekt.get<eu.kanade.domain.ai.AiPreferences>() }
-            val enableAi by aiPreferences.enableAi().collectAsState()
-            val enableAiAssistant by aiPreferences.enableAiAssistant().collectAsState()
-            
-            if (enableAi && enableAiAssistant) {
-                item {
+            item {
+                val aiPreferences = remember { Injekt.get<eu.kanade.domain.ai.AiPreferences>() }
+                val enableAi by aiPreferences.enableAi().collectAsState()
+                val enableAiAssistant by aiPreferences.enableAiAssistant().collectAsState()
+                
+                if (enableAi && enableAiAssistant) {
                     TextPreferenceWidget(
                         title = "AI Diagnosis",
                         icon = Icons.Outlined.AutoAwesome,

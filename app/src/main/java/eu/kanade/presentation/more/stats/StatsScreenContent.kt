@@ -45,10 +45,10 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import eu.kanade.domain.ai.AiPreferences
 import eu.kanade.presentation.components.MarkdownRender
 import eu.kanade.presentation.more.stats.data.StatsData
 import eu.kanade.presentation.util.toDurationString
-import tachiyomi.domain.ai.AiPreferences
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.material.padding
 import tachiyomi.presentation.core.i18n.stringResource
@@ -69,7 +69,7 @@ fun StatsScreenContent(
     onRegenerateAiAnalysis: () -> Unit,
 ) {
     val statListState = rememberLazyListState()
-    val aiPreferences = remember { Injekt.get<eu.kanade.domain.ai.AiPreferences>() }
+    val aiPreferences = remember { Injekt.get<AiPreferences>() }
     val enableAi by aiPreferences.enableAi().collectAsState()
     val enableAiStatistics by aiPreferences.enableAiStatistics().collectAsState()
 
