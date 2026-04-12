@@ -207,7 +207,7 @@ private fun AiIntelligenceSection(
         ) {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.padding(MaterialTheme.padding.medium)
+                modifier = Modifier.padding(16.dp)
             ) {
                 Icon(
                     imageVector = Icons.Outlined.AutoAwesome,
@@ -281,12 +281,10 @@ private fun AiIntelligenceSection(
             if (expanded && analysis != null) {
                 HorizontalDivider(modifier = Modifier.alpha(0.2f))
                 Box(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
-                    SelectionContainer {
-                        MarkdownRender(
-                            content = analysis,
-                            modifier = Modifier.fillMaxWidth()
-                        )
-                    }
+                    MarkdownRender(
+                        content = analysis,
+                        modifier = Modifier.fillMaxWidth()
+                    )
                 }
             }
         }
