@@ -25,8 +25,6 @@ object InfrastructureScreen : Screen {
         val screenModel = rememberScreenModel { InfrastructureScreenModel() }
         val state by screenModel.state.collectAsState()
         val isRefreshing by screenModel.isRefreshing.collectAsState()
-        val aiDiagnosis by screenModel.aiDiagnosis.collectAsState()
-        val isAiLoading by screenModel.isAiLoading.collectAsState()
 
         LaunchedEffect(Unit) {
             screenModel.events.collectLatest { event ->
@@ -61,9 +59,6 @@ object InfrastructureScreen : Screen {
                 state = state,
                 isRefreshing = isRefreshing,
                 onRefresh = screenModel::runDiagnostics,
-                aiDiagnosis = aiDiagnosis,
-                isAiLoading = isAiLoading,
-                onRunAiDiagnosis = screenModel::runAiDiagnosis,
                 contentPadding = contentPadding,
             )
         }

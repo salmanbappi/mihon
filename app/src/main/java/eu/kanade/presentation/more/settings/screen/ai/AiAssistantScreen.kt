@@ -38,6 +38,7 @@ import eu.kanade.tachiyomi.ui.more.settings.screen.ai.AiMessage
 import eu.kanade.tachiyomi.util.system.copyToClipboard
 import kotlinx.coroutines.launch
 import tachiyomi.presentation.core.components.material.Scaffold
+import tachiyomi.presentation.core.util.collectAsState
 import tachiyomi.presentation.core.util.secondaryItemAlpha
 
 class AiAssistantScreen : Screen() {
@@ -243,16 +244,29 @@ private fun ChatInput(
                 maxLines = 4
             )
             Spacer(Modifier.width(8.dp))
-            FloatingActionButton(
+            IconButton(
                 onClick = onSend,
-                modifier = Modifier.size(48.dp),
-                containerColor = MaterialTheme.colorScheme.primary,
+                modifier = Modifier
+                    .size(48.dp)
+                    .background(
+                        if (value.isNotBlank() && !isLoading) MaterialTheme.colorScheme.primary 
+                        else MaterialTheme.colorScheme.surfaceVariant,
+                        CircleShape
+                    ),
                 enabled = value.isNotBlank() && !isLoading
             ) {
                 if (isLoading) {
-                    CircularProgressIndicator(modifier = Modifier.size(24.dp), color = MaterialTheme.colorScheme.onPrimary)
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(24.dp), 
+                        color = MaterialTheme.colorScheme.primary,
+                        strokeWidth = 2.dp
+                    )
                 } else {
-                    Icon(Icons.AutoMirrored.Filled.Send, null)
+                    Icon(
+                        Icons.AutoMirrored.Filled.Send, 
+                        null, 
+                        tint = if (value.isNotBlank()) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant
+                    )
                 }
             }
         }

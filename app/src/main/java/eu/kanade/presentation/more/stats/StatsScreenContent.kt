@@ -52,6 +52,7 @@ import tachiyomi.domain.ai.AiPreferences
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.material.padding
 import tachiyomi.presentation.core.i18n.stringResource
+import tachiyomi.presentation.core.util.collectAsState
 import tachiyomi.presentation.core.util.secondaryItemAlpha
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
@@ -188,7 +189,7 @@ private fun AiIntelligenceSection(
                     Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                         IconButton(
                             onClick = {
-                                eu.kanade.tachiyomi.util.system.copyToClipboard(context, "Mihon AI Analysis", analysis)
+                                eu.kanade.tachiyomi.util.system.copyToClipboard(context, analysis)
                             },
                             modifier = Modifier.size(32.dp)
                         ) {

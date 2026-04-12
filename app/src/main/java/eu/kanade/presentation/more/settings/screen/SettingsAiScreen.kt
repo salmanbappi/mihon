@@ -70,7 +70,7 @@ object SettingsAiScreen : SearchableSettings {
             title = "Personalization",
             preferenceItems = persistentListOf(
                 Preference.PreferenceItem.EditTextPreference(
-                    pref = aiPreferences.displayName(),
+                    preference = aiPreferences.displayName(),
                     title = "Analytics Persona",
                     subtitle = "Your identifier in system reports",
                 ),
@@ -93,14 +93,14 @@ object SettingsAiScreen : SearchableSettings {
             title = "Processing Engine",
             preferenceItems = persistentListOf(
                 Preference.PreferenceItem.SwitchPreference(
-                    pref = enableAiPref,
+                    preference = enableAiPref,
                     title = "Enable Processing Core",
                     subtitle = "Activates the analytical engine for data processing",
                 ),
                 Preference.PreferenceItem.ListPreference(
-                    pref = aiPreferences.aiEngine(),
+                    preference = aiPreferences.aiEngine(),
                     title = "LLM Processor",
-                    subtitle = "Select the computational backend",
+                    subtitle = "Select the computational backend: %s",
                     entries = persistentMapOf(
                         "gemini" to "Google Gemini (Analytical)",
                         "groq" to "Groq (High-Speed Inference)",
@@ -108,13 +108,13 @@ object SettingsAiScreen : SearchableSettings {
                     enabled = enableAi,
                 ),
                 Preference.PreferenceItem.EditTextPreference(
-                    pref = aiPreferences.geminiApiKey(),
+                    preference = aiPreferences.geminiApiKey(),
                     title = "Gemini API Key",
                     subtitle = "Used for Gemini processing",
                     enabled = enableAi && aiEngine == "gemini",
                 ),
                 Preference.PreferenceItem.EditTextPreference(
-                    pref = aiPreferences.groqApiKey(),
+                    preference = aiPreferences.groqApiKey(),
                     title = "Groq API Key",
                     subtitle = "Used for high-speed inference",
                     enabled = enableAi && aiEngine == "groq",
@@ -132,25 +132,24 @@ object SettingsAiScreen : SearchableSettings {
             enabled = enableAi,
             preferenceItems = persistentListOf(
                 Preference.PreferenceItem.SwitchPreference(
-                    pref = aiPreferences.enableAiAssistant(),
+                    preference = aiPreferences.enableAiAssistant(),
                     title = "Enable Assistant",
                     subtitle = "Enables conversational diagnostics",
                 ),
                 Preference.PreferenceItem.SwitchPreference(
-                    pref = aiPreferences.aiAssistantLogs(),
+                    preference = aiPreferences.aiAssistantLogs(),
                     title = "Ingest Error Logs",
                     subtitle = "Allows the assistant to analyze stack traces",
                 ),
                 Preference.PreferenceItem.SwitchPreference(
-                    pref = aiPreferences.aiAssistantLibrary(),
+                    preference = aiPreferences.aiAssistantLibrary(),
                     title = "Ingest Library Context",
                     subtitle = "Allows the assistant to analyze your collection",
                 ),
-                Preference.PreferenceItem.MultiLineEditTextPreference(
-                    pref = aiPreferences.aiSystemPrompt(),
+                Preference.PreferenceItem.EditTextPreference(
+                    preference = aiPreferences.aiSystemPrompt(),
                     title = "Custom System Prompt",
                     subtitle = "Override the default behavioral instructions",
-                    canBeBlank = true,
                 ),
             ),
         )
@@ -165,7 +164,7 @@ object SettingsAiScreen : SearchableSettings {
             enabled = enableAi,
             preferenceItems = persistentListOf(
                 Preference.PreferenceItem.SwitchPreference(
-                    pref = aiPreferences.enableAiStatistics(),
+                    preference = aiPreferences.enableAiStatistics(),
                     title = "Data Summarization",
                     subtitle = "Generates technical summaries in the Statistics module",
                 ),
