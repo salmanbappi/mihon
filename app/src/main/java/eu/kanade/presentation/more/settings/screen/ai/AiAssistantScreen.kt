@@ -176,7 +176,7 @@ class AiAssistantScreen : Screen() {
                     modifier = Modifier
                         .fillMaxSize()
                         .padding(top = padding.calculateTopPadding())
-                        .consumeWindowInsets(padding) // Proper inset handling
+                        .consumeWindowInsets(padding)
                 ) {
                         DiagnosticHUD(errorCount)
                         
@@ -310,7 +310,7 @@ class AiAssistantScreen : Screen() {
             tonalElevation = 2.dp,
             modifier = Modifier
                 .fillMaxWidth()
-                .imePadding() // Follow keyboard directly
+                .windowInsetsPadding(WindowInsets.ime)
                 .padding(bottom = 4.dp),
             color = Color.Transparent
         ) {
