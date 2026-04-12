@@ -52,13 +52,13 @@ jobs:
 
       - name: Build Release APK
         run: |
-          echo "${{ secrets.SIGNING_RELEASE_KEYSTORE }}" | base64 -d > release.jks
+          echo "${{ secrets.RELEASE_KEYSTORE }}" | base64 -d > release.jks
           ./gradlew assembleRelease -Pinclude-telemetry=false -Penable-updater=false --no-daemon
         env:
           SIGNING_STORE_FILE: release.jks
-          SIGNING_STORE_PASSWORD: ${{ secrets.SIGNING_STORE_PASSWORD }}
-          SIGNING_KEY_ALIAS: ${{ secrets.SIGNING_KEY_ALIAS }}
-          SIGNING_KEY_PASSWORD: ${{ secrets.SIGNING_KEY_PASSWORD }}
+          SIGNING_STORE_PASSWORD: ${{ secrets.RELEASE_KEYSTORE_PASSWORD }}
+          SIGNING_KEY_ALIAS: ${{ secrets.RELEASE_KEY_ALIAS }}
+          SIGNING_KEY_PASSWORD: ${{ secrets.RELEASE_KEY_PASSWORD }}
 
       - name: Rename APK
         run: |
