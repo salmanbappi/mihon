@@ -18,7 +18,6 @@ import tachiyomi.core.common.util.system.logcat
 import logcat.LogPriority
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
-import tachiyomi.domain.storage.service.StorageManager
 import java.io.File
 import java.io.BufferedReader
 import java.io.InputStreamReader
@@ -64,7 +63,7 @@ class AiManager(
             
             OPERATIONAL PROTOCOLS:
             1. FORMATTING: STRICTLY NO TABLES. Use bullet points or lists for structured data. NEVER output Markdown tables.
-            2.Grounding: Provide actionable manga-centric system insights.
+            2. GROUNDING: Provide actionable manga-centric system insights.
         """.trimIndent()
         
         val systemInstruction = if (customPrompt.isNotBlank()) customPrompt else defaultSystemInstruction
@@ -168,18 +167,18 @@ class AiManager(
             } catch (e: Exception) {}
 
             if (logLines.size < 10) {
-                val storageManager = Injekt.get<StorageManager>()
                 val internalLogDir = File(context.cacheDir, "logs")
-                val logDir = storageManager.getLogsDirectory() 
-                    ?: UniFile.fromFile(internalLogDir)
-                
-                val latestLog = logDir?.listFiles()
-                    ?.filter { it.isFile && it.name?.endsWith(".log") == true }
-                    ?.maxByOrNull { it.lastModified() }
-                
-                if (latestLog != null) {
-                    latestLog.openInputStream().bufferedReader().useLines { lines ->
-                        logLines.addAll(lines.toList().takeLast(500))
+                if (internalLogDir.exists()) {
+                    val latestLog = internalLogDir.listFiles()
+                        ?.filter { it.isFile && it.name.endsWith(".log") }
+                        ?.maxByOrNull { it.lastModified() }
+                    
+                    if (latestLog != null) {
+                        try {
+                            latestLog.bufferedReader().useLines { lines ->
+                                logLines.addAll(lines.toList().takeLast(500))
+                            }
+                        } catch (e: Exception) {}
                     }
                 }
             }
@@ -276,7 +275,6 @@ class AiManager(
         systemInstruction: String? = null,
         withTools: Boolean = false
     ): Flow<String> = flow {
-        // Simple port of Anizen's Groq streaming
         val groqMessages = mutableListOf<GroqMessage>()
         if (systemInstruction != null) groqMessages.add(GroqMessage(role = "system", content = systemInstruction))
         messages.forEach { msg -> groqMessages.add(GroqMessage(role = if (msg.role == "user") "user" else "assistant", content = msg.content)) }
