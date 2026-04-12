@@ -138,8 +138,13 @@ class AiManager(
     }
 
     private fun isCircuitBreakerTripped(): Boolean {
-        if (aiPreferences.isRequestPending().get()) {
+        val lastRequestTime = aiPreferences.lastAiRequestTime().get()
+        val isPending = aiPreferences.isRequestPending().get()
+        
+        // If a request has been "pending" for more than 10 seconds, it's likely a crash or hang
+        if (isPending && System.currentTimeMillis() - lastRequestTime > 10000) {
             aiPreferences.isCircuitBreakerTripped().set(true)
+            aiPreferences.isRequestPending().set(false)
             return true
         }
         return aiPreferences.isCircuitBreakerTripped().get()
@@ -149,6 +154,7 @@ class AiManager(
         val count = aiPreferences.hourlyAiRequestCount().get()
         aiPreferences.hourlyAiRequestCount().set(count + 1)
         aiPreferences.lastAiRequestTime().set(System.currentTimeMillis())
+        aiPreferences.isRequestPending().set(false)
     }
 
     private suspend fun getSanitizedLogs(): String = withIOContext {

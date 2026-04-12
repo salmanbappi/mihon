@@ -146,10 +146,14 @@ class AiAssistantScreen : Screen() {
                         title = "Mihon Intelligence OS",
                         navigateUp = { navigator.pop() },
                         actions = {
+                            IconButton(onClick = { screenModel.resetSystem() }) {
+                                Icon(Icons.Default.Refresh, "Reset System")
+                            }
                             IconButton(onClick = { scope.launch { drawerState.open() } }) {
                                 Icon(Icons.Default.Menu, "Session History")
                             }
                         }
+
                     )
                 },
                 containerColor = MaterialTheme.colorScheme.surface,
@@ -231,9 +235,9 @@ class AiAssistantScreen : Screen() {
                             onSend = {
                                 screenModel.sendMessage(input)
                                 input = ""
-                            },
-                            modifier = Modifier.navigationBarsPadding()
+                            }
                         )
+
                     }
                 }
             }

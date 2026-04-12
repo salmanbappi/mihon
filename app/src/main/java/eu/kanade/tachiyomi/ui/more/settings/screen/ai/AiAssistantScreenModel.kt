@@ -60,6 +60,11 @@ class AiAssistantScreenModel(
         }
     }
 
+    fun resetSystem() {
+        aiManager.resetCircuitBreaker()
+        mutableState.update { it.copy(messages = emptyList(), streamingMessage = null, isLoading = false) }
+    }
+
     fun createNewSession() {
         mutableState.update { AiAssistantState(activeSessionId = System.currentTimeMillis()) }
     }
