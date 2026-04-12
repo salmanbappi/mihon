@@ -197,11 +197,12 @@ private fun AiIntelligenceSection(
     
     StatsSectionCard(
         title = "Behavioral Analytics",
-        modifier = Modifier.clickable(enabled = analysis != null) { expanded = !expanded }
     ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
+                .clip(MaterialTheme.shapes.large)
+                .clickable(enabled = analysis != null) { expanded = !expanded }
                 .animateContentSize()
         ) {
             Row(
