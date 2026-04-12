@@ -44,7 +44,7 @@ android {
             versionNameSuffix = "-${getLatestCommitCount()}"
             isPseudoLocalesEnabled = true
             manifestPlaceholders["appIcon"] = "@mipmap/ic_launcher"
-            manifestPlaceholders["appIconRound"] = "@mipmap/ic_launcher_round"
+            manifestPlaceholders["appIconRound"] = "@mipmap/ic_launcher"
         }
         val release by getting {
             isMinifyEnabled = Config.enableCodeShrink
@@ -54,7 +54,7 @@ android {
 
             buildConfigField("String", "BUILD_TIME", "\"${getBuildTime(useLatestCommitTime = true)}\"")
             manifestPlaceholders["appIcon"] = "@mipmap/ic_launcher"
-            manifestPlaceholders["appIconRound"] = "@mipmap/ic_launcher_round"
+            manifestPlaceholders["appIconRound"] = "@mipmap/ic_launcher"
         }
 
         val commonMatchingFallbacks = listOf(release.name)
@@ -64,7 +64,7 @@ android {
             applicationIdSuffix = ".preview"
             versionNameSuffix = "-preview-${getLatestCommitCount()}"
             manifestPlaceholders["appIcon"] = "@mipmap/ic_launcher_preview"
-            manifestPlaceholders["appIconRound"] = "@mipmap/ic_launcher_preview_round"
+            manifestPlaceholders["appIconRound"] = "@mipmap/ic_launcher_preview"
             matchingFallbacks += commonMatchingFallbacks
         }
 
@@ -73,7 +73,7 @@ android {
             applicationIdSuffix = ".beta"
             versionNameSuffix = "-beta-${getLatestCommitCount()}"
             manifestPlaceholders["appIcon"] = "@mipmap/ic_launcher_preview"
-            manifestPlaceholders["appIconRound"] = "@mipmap/ic_launcher_preview_round"
+            manifestPlaceholders["appIconRound"] = "@mipmap/ic_launcher_preview"
             matchingFallbacks += commonMatchingFallbacks
         }
 
