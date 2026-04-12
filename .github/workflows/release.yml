@@ -1,179 +1,165 @@
-name: Release
+name: Official Release
 on:
-  workflow_dispatch:
   push:
+    branches:
+      - main
     tags:
-      - v*
+      - 'v*'
+    paths-ignore:
+      - '**.md'
+  workflow_dispatch:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 jobs:
-  get_tag:
-    if: github.repository == 'mihonapp/mihon' || github.repository == 'salmanbappi/mihon'
-    name: Extract tag name
-    runs-on: 'ubuntu-24.04'
-    outputs:
-      tag: ${{ steps.extract.outputs.tag }}
+  build-release:
+    name: Build & Public Release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
 
     steps:
-      - name: Get tag name
-        id: extract
+      - name: Clone repo
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up JDK
+        uses: actions/setup-java@v4
+        with:
+          java-version: 17
+          distribution: temurin
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Run Code Analysis (Detekt)
+        run: ./gradlew detekt --no-daemon
+
+      - name: Bump Version
+        run: ./scripts/bump_version.sh
+
+      - name: Commit and Push Version Bump
         run: |
-          if [[ $GITHUB_REF == refs/tags/* ]]; then
-            echo "tag=${GITHUB_REF/refs\/tags\//}" >> $GITHUB_OUTPUT
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add app/build.gradle.kts
+          git commit -m "chore: bump version to ${{ env.NEW_VN }}"
+          git push origin master
+
+      - name: Build Release APK
+        run: ./gradlew assembleRelease -Pinclude-telemetry=false -Penable-updater=false --no-daemon
+        env:
+          SIGNING_STORE_PASSWORD: ${{ secrets.SIGNING_STORE_PASSWORD }}
+          SIGNING_KEY_ALIAS: ${{ secrets.SIGNING_KEY_ALIAS }}
+          SIGNING_KEY_PASSWORD: ${{ secrets.SIGNING_KEY_PASSWORD }}
+
+      - name: Rename APK
+        run: |
+          VERSION="${{ env.NEW_VN }}"
+          cd app/build/outputs/apk/release/
+          for f in *.apk; do
+            mv "$f" "Mihon-v$VERSION-$f"
+          done
+
+      - name: Generate Detailed Context for AI
+        run: |
+          # Get the previous tag
+          PREV_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
+          if [ -z "$PREV_TAG" ]; then
+            RANGE="-n 10"
           else
-            echo "tag=manual-$(date +'%Y%m%d%H%M%S')" >> $GITHUB_OUTPUT
+            RANGE="$PREV_TAG..HEAD"
           fi
+          
+          mkdir -p .github/ai
+          # 1. Get commits (subjects and bodies)
+          git log $RANGE --pretty=format:"- %s%n%b" | grep -v "chore: bump version" > .github/ai/commits.txt || echo "New version release." > .github/ai/commits.txt
+          
+          # 2. Get file change statistics
+          git diff --stat $RANGE > .github/ai/files.txt
+          
+          # 3. Get actual code diff (capped at 200 lines for stability)
+          git diff -U1 $RANGE | head -n 200 > .github/ai/diff.txt
 
-  build:
-    if: github.repository == 'mihonapp/mihon' || github.repository == 'salmanbappi/mihon'
-    name: Build
-    runs-on: 'ubuntu-24.04'
-    needs: get_tag
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-
-      - name: Set up JDK
-        uses: actions/setup-java@be666c2fcd27ec809703dec50e508c2fdc7f6654 # v5.2.0
-        with:
-          java-version-file: .github/.java-version
-          distribution: temurin
-
-      - name: Set up Gradle
-        uses: gradle/actions/setup-gradle@0723195856401067f7a2779048b490ace7a47d7c # v5.0.2
-
-      - name: Build
-        run: ./gradlew assembleRelease -Pinclude-telemetry -Penable-updater
-
-      - name: Sign APK
-        uses: r0adkll/sign-android-release@a391126403df92c6a0a3988a829dd47f79b89ed7
-        with:
-          releaseDirectory: app/build/outputs/apk/release
-          signingKeyBase64: ${{ secrets.RELEASE_KEYSTORE }}
-          alias: ${{ secrets.RELEASE_KEY_ALIAS }}
-          keyStorePassword: ${{ secrets.RELEASE_KEYSTORE_PASSWORD }}
-          keyPassword: ${{ secrets.RELEASE_KEY_PASSWORD }}
+      - name: Format Changelog with Groq AI
         env:
-          BUILD_TOOLS_VERSION: '35.0.1'
-
-      - name: Rename APK
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
         run: |
-          set -e
+          COMMITS=$(cat .github/ai/commits.txt)
+          FILES=$(cat .github/ai/files.txt)
+          DIFF=$(cat .github/ai/diff.txt)
+          
+          cat > .github/ai/full_prompt.txt <<EOF
+          You are an excited team member of Mihon! Write a friendly and hyped 'Changelog' for our fans. 
+          Summarize WHAT IS NEW and WHAT CHANGED based on the commits and diff below.
+          Use emojis like 🚀, ✨, and 🛠️. Group into 'What's New', 'Fixed', and 'Polished'.
+          CRITICAL: Do NOT mention technical terms like 'code', 'commits', or 'diff'. Focus on improvements!
+          If the diff is truncated, rely on the commit history to tell the story.
+          
+          NEW CHANGES:
+          COMMITS:
+          $COMMITS
 
-          mv app/build/outputs/apk/release/app-universal-release-unsigned-signed.apk mihon-${{ needs.get_tag.outputs.tag }}.apk
-          mv app/build/outputs/apk/release/app-arm64-v8a-release-unsigned-signed.apk mihon-arm64-v8a-${{ needs.get_tag.outputs.tag }}.apk
-          mv app/build/outputs/apk/release/app-armeabi-v7a-release-unsigned-signed.apk mihon-armeabi-v7a-${{ needs.get_tag.outputs.tag }}.apk
-          mv app/build/outputs/apk/release/app-x86-release-unsigned-signed.apk mihon-x86-${{ needs.get_tag.outputs.tag }}.apk
-          mv app/build/outputs/apk/release/app-x86_64-release-unsigned-signed.apk mihon-x86_64-${{ needs.get_tag.outputs.tag }}.apk
-
-      - name: Upload APK
-        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
-        with:
-          name: mihon
-          path: |
-            mihon-${{ needs.get_tag.outputs.tag }}.apk
-            mihon-arm64-v8a-${{ needs.get_tag.outputs.tag }}.apk
-            mihon-armeabi-v7a-${{ needs.get_tag.outputs.tag }}.apk
-            mihon-x86-${{ needs.get_tag.outputs.tag }}.apk
-            mihon-x86_64-${{ needs.get_tag.outputs.tag }}.apk
-
-  build_foss:
-    if: github.repository == 'mihonapp/mihon' || github.repository == 'salmanbappi/mihon'
-    name: Build (FOSS)
-    runs-on: ubuntu-24.04
-    needs: get_tag
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-
-      - name: Set up JDK
-        uses: actions/setup-java@be666c2fcd27ec809703dec50e508c2fdc7f6654 # v5.2.0
-        with:
-          java-version-file: .github/.java-version
-          distribution: temurin
-
-      - name: Set up Gradle
-        uses: gradle/actions/setup-gradle@0723195856401067f7a2779048b490ace7a47d7c # v5.0.2
-        with:
-          cache-disabled: true
-
-      - name: Build
-        run: ./gradlew assembleFoss -Penable-updater
-
-      - name: Sign APK
-        uses: r0adkll/sign-android-release@a391126403df92c6a0a3988a829dd47f79b89ed7
-        with:
-          releaseDirectory: app/build/outputs/apk/foss
-          signingKeyBase64: ${{ secrets.RELEASE_KEYSTORE }}
-          alias: ${{ secrets.RELEASE_KEY_ALIAS }}
-          keyStorePassword: ${{ secrets.RELEASE_KEYSTORE_PASSWORD }}
-          keyPassword: ${{ secrets.RELEASE_KEY_PASSWORD }}
-        env:
-          BUILD_TOOLS_VERSION: '35.0.1'
-
-      - name: Rename APK
-        run: |
-          set -e
-
-          mv app/build/outputs/apk/foss/app-universal-foss-unsigned-signed.apk mihon-${{ needs.get_tag.outputs.tag }}-foss.apk
-
-      - name: Upload APK
-        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
-        with:
-          name: mihon-foss
-          path: mihon-${{ needs.get_tag.outputs.tag }}-foss.apk
-
-  release:
-    if: github.repository == 'mihonapp/mihon' || github.repository == 'salmanbappi/mihon'
-    name: Create GitHub Release
-    runs-on: ubuntu-24.04
-    needs: [get_tag, build, build_foss]
-
-    steps:
-      - name: Download all artifacts
-        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
-        with:
-          merge-multiple: true
-
-      - name: Delete all artifacts
-        uses: geekyeggo/delete-artifact@f275313e70c08f6120db482d7a6b98377786765b # v5.1.0
-        with:
-          failOnError: false
-          name: |
-            mihon
-            mihon-foss
+          FILE STATS:
+          $FILES
+          
+          DIFF SNIPPET:
+          $DIFF
+          EOF
+          
+          PAYLOAD=$(jq -n \
+            --rawfile prompt .github/ai/full_prompt.txt \
+            --arg model "llama-3.3-70b-versatile" \
+            '{
+              model: $model,
+              messages: [{role: "user", content: $prompt}],
+              temperature: 0.7,
+              max_tokens: 1024
+            }')
+          
+          echo "Requesting AI summary from Groq (llama-3.3-70b-versatile)..."
+          RESPONSE=$(curl -s -X POST "https://api.groq.com/openai/v1/chat/completions" \
+            -H "Authorization: Bearer $GROQ_API_KEY" \
+            -H "Content-Type: application/json" \
+            -d "$PAYLOAD")
+          
+          # Debug: Log the response status/error (excluding full body if successful)
+          ERROR_MSG=$(echo "$RESPONSE" | jq -r '.error.message // empty')
+          if [ -n "$ERROR_MSG" ]; then
+            echo "Groq API Error: $ERROR_MSG"
+          else
+            echo "Groq API Request: Success"
+          fi
+          
+          SUMMARY=$(echo "$RESPONSE" | jq -r '.choices[0].message.content // empty')
+          
+          if [ -z "$SUMMARY" ] || [ "$SUMMARY" == "null" ]; then
+            SUMMARY="We've made some secret improvements under the hood to make your experience better! ✨"
+          fi
+          
+          echo "CHANGELOG<<EOF" >> $GITHUB_ENV
+          echo "$SUMMARY" >> $GITHUB_ENV
+          echo "EOF" >> $GITHUB_ENV
 
       - name: Create GitHub Release
-        uses: softprops/action-gh-release@153bb8e04406b158c6c84fc1615b65b24149a1fe # v2.6.1
+        uses: softprops/action-gh-release@v1
         with:
-          tag_name: ${{ needs.get_tag.outputs.tag }}
-          name: Mihon ${{ needs.get_tag.outputs.tag }}
-          body: |
-            Custom build for SalmanBappi.
-
-            Check out the [past release notes](https://github.com/mihonapp/mihon/releases) if you're upgrading from an earlier version. Consider [becoming a patron](https://www.patreon.com/mihon/membership) to help keep Mihon improving!
-
-            <!-->
-
-
-
-            <!-->
-
-            > [!TIP]
-            >
-            > ### If you are unsure which version to download then go with `mihon-${{ needs.get_tag.outputs.tag }}.apk`
-          files: |
-            mihon-${{ needs.get_tag.outputs.tag }}.apk
-            mihon-${{ needs.get_tag.outputs.tag }}-foss.apk
-            mihon-arm64-v8a-${{ needs.get_tag.outputs.tag }}.apk
-            mihon-armeabi-v7a-${{ needs.get_tag.outputs.tag }}.apk
-            mihon-x86-${{ needs.get_tag.outputs.tag }}.apk
-            mihon-x86_64-${{ needs.get_tag.outputs.tag }}.apk
-          draft: true
+          tag_name: v${{ env.NEW_VN }}
+          name: Mihon Release v${{ env.NEW_VN }}
+          files: app/build/outputs/apk/release/*.apk
+          draft: false
           prerelease: false
-          token: ${{ secrets.GITHUB_TOKEN }}
+          generate_release_notes: false
+          body: |
+            ## 🚀 Mihon v${{ env.NEW_VN }}
+            
+            ${{ env.CHANGELOG }}
+            
+            ---
+            **📥 Download:** Choose the `arm64-v8a` version for your phone.
