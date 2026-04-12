@@ -1,30 +1,61 @@
 package eu.kanade.presentation.more.stats
 
+import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.IntrinsicSize
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.LazyItemScope
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.CollectionsBookmark
+import androidx.compose.material.icons.outlined.Extension
+import androidx.compose.material.icons.outlined.History
 import androidx.compose.material.icons.outlined.LocalLibrary
 import androidx.compose.material.icons.outlined.Schedule
+import androidx.compose.material.icons.outlined.Star
+import androidx.compose.material3.ElevatedCard
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.remember
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.nativeCanvas
+import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
-import eu.kanade.presentation.more.stats.components.StatsItem
-import eu.kanade.presentation.more.stats.components.StatsOverviewItem
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import eu.kanade.presentation.more.stats.data.StatsData
 import eu.kanade.presentation.util.toDurationString
-import tachiyomi.i18n.MR
-import tachiyomi.presentation.core.components.SectionCard
 import tachiyomi.presentation.core.components.material.padding
-import tachiyomi.presentation.core.i18n.stringResource
-import java.util.Locale
+import tachiyomi.presentation.core.util.secondaryItemAlpha
+import kotlin.math.cos
+import kotlin.math.sin
 import kotlin.time.DurationUnit
 import kotlin.time.toDuration
 
@@ -33,130 +64,508 @@ fun StatsScreenContent(
     state: StatsScreenState.Success,
     paddingValues: PaddingValues,
 ) {
+    val statListState = rememberLazyListState()
+
     LazyColumn(
+        state = statListState,
         contentPadding = paddingValues,
-        verticalArrangement = Arrangement.spacedBy(MaterialTheme.padding.small),
+        verticalArrangement = Arrangement.spacedBy(MaterialTheme.padding.medium),
+        modifier = Modifier
+            .fillMaxSize()
+            .background(MaterialTheme.colorScheme.background)
+            .padding(horizontal = MaterialTheme.padding.medium),
     ) {
         item {
-            OverviewSection(state.overview)
+            ProfileHeaderSection(state)
         }
+
         item {
-            TitlesStats(state.titles)
+            GenreAffinitySection(state.genreAffinity)
         }
+
         item {
-            ChapterStats(state.chapters)
+            OverviewGridSection(state)
         }
+
         item {
-            TrackerStats(state.trackers)
+            StatusBreakdownSection(state.statuses)
+        }
+
+        item {
+            ScoreDistributionSection(state.scores)
+        }
+
+        item {
+            ExtensionUsageSection(state.extensions)
+        }
+
+        item {
+            ReadHabitsSection(state.readHabits)
         }
     }
 }
 
 @Composable
-private fun LazyItemScope.OverviewSection(
-    data: StatsData.Overview,
-) {
-    val none = stringResource(MR.strings.none)
-    val context = LocalContext.current
-    val readDurationString = remember(data.totalReadDuration) {
-        data.totalReadDuration
-            .toDuration(DurationUnit.MILLISECONDS)
-            .toDurationString(context, fallback = none)
-    }
-    SectionCard(MR.strings.label_overview_section) {
-        Row(
-            modifier = Modifier.height(IntrinsicSize.Min),
+private fun ProfileHeaderSection(state: StatsScreenState.Success) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = MaterialTheme.shapes.large,
+        color = MaterialTheme.colorScheme.surfaceContainerLow,
+        tonalElevation = 2.dp
+    ) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally, 
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(24.dp)
         ) {
-            StatsOverviewItem(
-                title = data.libraryMangaCount.toString(),
-                subtitle = stringResource(MR.strings.in_library),
-                icon = Icons.Outlined.CollectionsBookmark,
+            Box(
+                modifier = Modifier
+                    .size(80.dp)
+                    .clip(CircleShape)
+                    .background(MaterialTheme.colorScheme.primaryContainer),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Outlined.LocalLibrary,
+                    contentDescription = null,
+                    modifier = Modifier.size(40.dp),
+                    tint = MaterialTheme.colorScheme.primary
+                )
+            }
+            Spacer(modifier = Modifier.height(16.dp))
+            Text(
+                text = "Library Statistics",
+                style = MaterialTheme.typography.headlineSmall,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onSurface
             )
-            StatsOverviewItem(
-                title = readDurationString,
-                subtitle = stringResource(MR.strings.label_read_duration),
-                icon = Icons.Outlined.Schedule,
-            )
-            StatsOverviewItem(
-                title = data.completedMangaCount.toString(),
-                subtitle = stringResource(MR.strings.label_completed_titles),
-                icon = Icons.Outlined.LocalLibrary,
-            )
-        }
-    }
-}
-
-@Composable
-private fun LazyItemScope.TitlesStats(
-    data: StatsData.Titles,
-) {
-    SectionCard(MR.strings.label_titles_section) {
-        Row {
-            StatsItem(
-                data.globalUpdateItemCount.toString(),
-                stringResource(MR.strings.label_titles_in_global_update),
-            )
-            StatsItem(
-                data.startedMangaCount.toString(),
-                stringResource(MR.strings.label_started),
-            )
-            StatsItem(
-                data.localMangaCount.toString(),
-                stringResource(MR.strings.label_local),
+            Text(
+                text = "${state.overview.libraryMangaCount} Titles in Collection",
+                style = MaterialTheme.typography.bodyMedium.copy(
+                    fontFamily = FontFamily.Monospace
+                ),
+                modifier = Modifier.secondaryItemAlpha(),
+                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
     }
 }
 
 @Composable
-private fun LazyItemScope.ChapterStats(
-    data: StatsData.Chapters,
+private fun OverviewGridSection(state: StatsScreenState.Success) {
+    val context = LocalContext.current
+    val readTime = state.overview.totalReadDuration
+        .toDuration(DurationUnit.MILLISECONDS)
+        .toDurationString(context, fallback = "0m")
+
+    StatsSectionCard(title = "Core Metrics") {
+        Column(modifier = Modifier.padding(MaterialTheme.padding.medium)) {
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                MetricItem(Icons.Outlined.Schedule, "Read Time", readTime)
+                MetricItem(Icons.Outlined.Star, "Mean Score", "%.2f".format(state.trackers.meanScore))
+            }
+            HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp).alpha(0.5f))
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                MetricItem(Icons.Outlined.History, "Chapters", state.chapters.readChapterCount.toString())
+                MetricItem(Icons.Outlined.Extension, "Trackers", state.trackers.trackerCount.toString())
+            }
+        }
+    }
+}
+
+@Composable
+private fun MetricItem(icon: ImageVector, label: String, value: String) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Icon(icon, null, modifier = Modifier.size(18.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+        Spacer(modifier = Modifier.width(8.dp))
+        Column {
+            Text(
+                text = value,
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+                fontFamily = FontFamily.Monospace,
+                color = MaterialTheme.colorScheme.primary
+            )
+            Text(text = label, style = MaterialTheme.typography.labelSmall, modifier = Modifier.secondaryItemAlpha())
+        }
+    }
+}
+
+@Composable
+private fun GenreAffinitySection(genreAffinity: StatsData.GenreAffinity) {
+    StatsSectionCard(title = "Genre Distribution") {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(MaterialTheme.padding.medium),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            val genres = genreAffinity.genreScores.take(6)
+            if (genres.size >= 3) {
+                RadarChart(
+                    data = genres.map { it.second.toFloat() },
+                    labels = genres.map { it.first },
+                    modifier = Modifier
+                        .size(240.dp)
+                        .padding(MaterialTheme.padding.large)
+                )
+            } else if (genres.isNotEmpty()) {
+                genres.forEach { pair ->
+                    GenreBar(pair.first, pair.second, genres.firstOrNull()?.second ?: 1)
+                    Spacer(modifier = Modifier.height(8.dp))
+                }
+            } else {
+                Text(
+                    text = "No genre data available",
+                    style = MaterialTheme.typography.bodySmall,
+                    modifier = Modifier.secondaryItemAlpha()
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun RadarChart(
+    data: List<Float>,
+    labels: List<String>,
+    modifier: Modifier = Modifier,
 ) {
-    SectionCard(MR.strings.chapters) {
-        Row {
-            StatsItem(
-                data.totalChapterCount.toString(),
-                stringResource(MR.strings.label_total_chapters),
-            )
-            StatsItem(
-                data.readChapterCount.toString(),
-                stringResource(MR.strings.label_read_chapters),
-            )
-            StatsItem(
-                data.downloadCount.toString(),
-                stringResource(MR.strings.label_downloaded),
+    val maxValue = data.maxOrNull() ?: 1f
+    val color = MaterialTheme.colorScheme.primary
+    val gridColor = MaterialTheme.colorScheme.outlineVariant
+    val textColor = MaterialTheme.colorScheme.onSurface.toArgb()
+    val density = LocalDensity.current
+
+    Canvas(modifier = modifier) {
+        val center = Offset(size.width / 2, size.height / 2)
+        val radius = size.minDimension / 2
+        val angleStep = (2 * Math.PI / data.size).toFloat()
+
+        // Draw grid
+        for (i in 1..4) {
+            val gridRadius = radius * (i / 4f)
+            val path = Path()
+            for (j in data.indices) {
+                val angle = j * angleStep - Math.PI.toFloat() / 2
+                val x = center.x + gridRadius * cos(angle)
+                val y = center.y + gridRadius * sin(angle)
+                if (j == 0) path.moveTo(x, y) else path.lineTo(x, y)
+            }
+            path.close()
+            drawPath(path, gridColor, style = Stroke(width = 1.dp.toPx()))
+        }
+
+        // Draw data path
+        val dataPath = Path()
+        for (i in data.indices) {
+            val angle = i * angleStep - Math.PI.toFloat() / 2
+            val dataRadius = radius * (data[i] / maxValue)
+            val x = center.x + dataRadius * cos(angle)
+            val y = center.y + dataRadius * sin(angle)
+            if (i == 0) dataPath.moveTo(x, y) else dataPath.lineTo(x, y)
+        }
+        dataPath.close()
+        drawPath(dataPath, color.copy(alpha = 0.3f))
+        drawPath(dataPath, color, style = Stroke(width = 2.dp.toPx()))
+
+        // Draw labels
+        for (i in labels.indices) {
+            val angle = i * angleStep - Math.PI.toFloat() / 2
+            val labelRadius = radius + 20.dp.toPx()
+            val x = center.x + labelRadius * cos(angle)
+            val y = center.y + labelRadius * sin(angle)
+
+            drawContext.canvas.nativeCanvas.drawText(
+                labels[i].take(8),
+                x,
+                y,
+                android.graphics.Paint().apply {
+                    this.color = textColor
+                    this.textSize = with(density) { 10.sp.toPx() }
+                    this.textAlign = android.graphics.Paint.Align.CENTER
+                }
             )
         }
     }
 }
 
 @Composable
-private fun LazyItemScope.TrackerStats(
-    data: StatsData.Trackers,
-) {
-    val notApplicable = stringResource(MR.strings.not_applicable)
-    val meanScoreStr = remember(data.trackedTitleCount, data.meanScore) {
-        if (data.trackedTitleCount > 0 && !data.meanScore.isNaN()) {
-            // All other numbers are localized in English
-            "%.2f ★".format(Locale.ENGLISH, data.meanScore)
-        } else {
-            notApplicable
+private fun GenreBar(genre: String, count: Int, maxCount: Int) {
+    val progress = count.toFloat() / maxCount
+    Column {
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+            Text(text = genre, style = MaterialTheme.typography.bodySmall)
+            Text(
+                text = count.toString(), 
+                style = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace), 
+                modifier = Modifier.secondaryItemAlpha()
+            )
+        }
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(6.dp)
+                .clip(CircleShape)
+                .background(MaterialTheme.colorScheme.surfaceContainerHigh)
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth(progress)
+                    .fillMaxHeight()
+                    .clip(CircleShape)
+                    .background(MaterialTheme.colorScheme.primary)
+            )
         }
     }
-    SectionCard(MR.strings.label_tracker_section) {
-        Row {
-            StatsItem(
-                data.trackedTitleCount.toString(),
-                stringResource(MR.strings.label_tracked_titles),
+}
+
+@Composable
+private fun ExtensionUsageSection(extensions: StatsData.ExtensionUsage) {
+    StatsSectionCard(title = "Source Distribution") {
+        Column(modifier = Modifier.padding(MaterialTheme.padding.medium)) {
+            if (extensions.topExtensions.isEmpty()) {
+                Text(
+                    text = "No source data available",
+                    style = MaterialTheme.typography.bodySmall,
+                    modifier = Modifier.secondaryItemAlpha()
+                )
+            } else {
+                extensions.topExtensions.forEachIndexed { index, info ->
+                    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(vertical = 4.dp)) {
+                        Text(
+                            text = "${index + 1}.",
+                            style = MaterialTheme.typography.bodyMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.width(24.dp)
+                        )
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(text = info.name, style = MaterialTheme.typography.bodyMedium)
+                            if (info.repo != null) {
+                                Text(
+                                    text = info.repo,
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.alpha(0.7f)
+                                )
+                            }
+                        }
+                        Text(
+                            text = "${info.count} titles", 
+                            style = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace), 
+                            modifier = Modifier.secondaryItemAlpha()
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ReadHabitsSection(habits: StatsData.ReadHabits) {
+    StatsSectionCard(title = "Temporal Patterns") {
+        Column(modifier = Modifier.padding(MaterialTheme.padding.medium), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                HabitItem("Preferred Cycle", habits.preferredReadTime)
+                HabitItem("Intensity", "%.1f sessions/week".format(habits.avgSessionsPerWeek))
+            }
+            HorizontalDivider(modifier = Modifier.alpha(0.3f))
+            if (habits.topDayManga != null) {
+                HabitItem("Peak Focus (24h)", habits.topDayManga)
+            }
+            if (habits.topMonthManga != null) {
+                HabitItem("Dominant Series (30d)", habits.topMonthManga)
+            }
+        }
+    }
+}
+
+@Composable
+private fun HabitItem(label: String, value: String) {
+    Column {
+        Text(text = label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(
+            text = value, 
+            style = MaterialTheme.typography.bodyLarge, 
+            fontWeight = FontWeight.Bold,
+            color = MaterialTheme.colorScheme.primary
+        )
+    }
+}
+
+@Composable
+private fun StatusBreakdownSection(statuses: StatsData.StatusBreakdown) {
+    StatsSectionCard(title = "Collection Status") {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(MaterialTheme.padding.medium),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            val data = listOf(
+                statuses.completedCount.toFloat(),
+                statuses.ongoingCount.toFloat(),
+                statuses.droppedCount.toFloat(),
+                statuses.onHoldCount.toFloat(),
+                statuses.planToReadCount.toFloat()
             )
-            StatsItem(
-                meanScoreStr,
-                stringResource(MR.strings.label_mean_score),
+            val colors = listOf(
+                MaterialTheme.colorScheme.primary,
+                MaterialTheme.colorScheme.tertiary,
+                MaterialTheme.colorScheme.error,
+                MaterialTheme.colorScheme.secondary,
+                MaterialTheme.colorScheme.outline
             )
-            StatsItem(
-                data.trackerCount.toString(),
-                stringResource(MR.strings.label_used),
+            
+            PieChart(
+                data = data,
+                colors = colors,
+                modifier = Modifier.size(120.dp)
             )
+            
+            Spacer(modifier = Modifier.width(24.dp))
+            
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                StatusLegendItem(MaterialTheme.colorScheme.primary, "Completed", statuses.completedCount)
+                StatusLegendItem(MaterialTheme.colorScheme.tertiary, "Ongoing", statuses.ongoingCount)
+                StatusLegendItem(MaterialTheme.colorScheme.secondary, "On Hold", statuses.onHoldCount)
+                StatusLegendItem(MaterialTheme.colorScheme.error, "Dropped", statuses.droppedCount)
+                StatusLegendItem(MaterialTheme.colorScheme.outline, "Planned", statuses.planToReadCount)
+            }
+        }
+    }
+}
+
+@Composable
+private fun StatusLegendItem(color: Color, label: String, count: Int) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Box(modifier = Modifier.size(8.dp).clip(CircleShape).background(color))
+        Spacer(modifier = Modifier.width(8.dp))
+        Text(text = label, style = MaterialTheme.typography.labelMedium, modifier = Modifier.weight(1f))
+        Text(
+            text = count.toString(), 
+            style = MaterialTheme.typography.labelMedium.copy(fontFamily = FontFamily.Monospace), 
+            fontWeight = FontWeight.Bold
+        )
+    }
+}
+
+@Composable
+private fun ScoreDistributionSection(scores: StatsData.ScoreDistribution) {
+    StatsSectionCard(title = "Score Distribution") {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(MaterialTheme.padding.medium)
+        ) {
+            val maxCount = scores.distribution.values.maxOrNull() ?: 1
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(160.dp)
+                    .padding(top = 16.dp),
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                verticalAlignment = Alignment.Bottom
+            ) {
+                for (i in 1..10) {
+                    val count = scores.distribution[i] ?: 0
+                    val weight = count.toFloat() / maxCount
+                    Column(
+                        modifier = Modifier.weight(1f),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        if (count > 0) {
+                            Text(
+                                text = count.toString(),
+                                style = MaterialTheme.typography.labelSmall.copy(
+                                    fontFamily = FontFamily.Monospace,
+                                    fontWeight = FontWeight.Bold
+                                ),
+                                fontSize = 9.sp,
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                        }
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .fillMaxHeight(weight.coerceAtLeast(0.02f))
+                                .clip(RoundedCornerShape(topStart = 6.dp, topEnd = 6.dp))
+                                .background(
+                                    Brush.verticalGradient(
+                                        colors = listOf(
+                                            MaterialTheme.colorScheme.primary,
+                                            MaterialTheme.colorScheme.primary.copy(alpha = 0.6f)
+                                        )
+                                    )
+                                )
+                        )
+                        HorizontalDivider(thickness = 2.dp, color = MaterialTheme.colorScheme.outlineVariant)
+                        Text(
+                            text = i.toString(),
+                            style = MaterialTheme.typography.labelMedium,
+                            fontWeight = if (count > 0) FontWeight.ExtraBold else FontWeight.Normal,
+                            color = if (count > 0) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+            }
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                text = "Based on ${scores.scoredMangaCount} rated titles",
+                style = MaterialTheme.typography.labelSmall,
+                modifier = Modifier.secondaryItemAlpha().align(Alignment.CenterHorizontally)
+            )
+        }
+    }
+}
+
+@Composable
+private fun PieChart(
+    data: List<Float>,
+    colors: List<Color>,
+    modifier: Modifier = Modifier
+) {
+    val total = data.sum()
+    Canvas(modifier = modifier) {
+        var startAngle = -90f
+        data.forEachIndexed { index, value ->
+            val sweepAngle = if (total > 0) (value / total) * 360f else 0f
+            drawArc(
+                color = colors[index % colors.size],
+                startAngle = startAngle,
+                sweepAngle = sweepAngle,
+                useCenter = true
+            )
+            startAngle += sweepAngle
+        }
+    }
+}
+
+@Composable
+private fun StatsSectionCard(
+    title: String,
+    modifier: Modifier = Modifier,
+    content: @Composable () -> Unit,
+) {
+    Column(modifier = modifier.fillMaxWidth()) {
+        Text(
+            text = title,
+            style = MaterialTheme.typography.titleSmall,
+            modifier = Modifier.padding(horizontal = MaterialTheme.padding.medium, vertical = MaterialTheme.padding.small)
+        )
+        ElevatedCard(
+            modifier = Modifier.fillMaxWidth(),
+            shape = MaterialTheme.shapes.large,
+            colors = androidx.compose.material3.CardDefaults.elevatedCardColors(
+                containerColor = MaterialTheme.colorScheme.surfaceContainerLow
+            ),
+            elevation = androidx.compose.material3.CardDefaults.elevatedCardElevation(defaultElevation = 2.dp)
+        ) {
+            content()
         }
     }
 }

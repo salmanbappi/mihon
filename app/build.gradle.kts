@@ -43,6 +43,8 @@ android {
             applicationIdSuffix = ".dev"
             versionNameSuffix = "-${getLatestCommitCount()}"
             isPseudoLocalesEnabled = true
+            manifestPlaceholders["appIcon"] = "@mipmap/ic_launcher"
+            manifestPlaceholders["appIconRound"] = "@mipmap/ic_launcher_round"
         }
         val release by getting {
             isMinifyEnabled = Config.enableCodeShrink
@@ -51,29 +53,37 @@ android {
             proguardFiles("proguard-android-optimize.txt", "proguard-rules.pro")
 
             buildConfigField("String", "BUILD_TIME", "\"${getBuildTime(useLatestCommitTime = true)}\"")
+            manifestPlaceholders["appIcon"] = "@mipmap/ic_launcher"
+            manifestPlaceholders["appIconRound"] = "@mipmap/ic_launcher_round"
         }
 
         val commonMatchingFallbacks = listOf(release.name)
+
+        create("preview") {
+            initWith(release)
+            applicationIdSuffix = ".preview"
+            versionNameSuffix = "-preview-${getLatestCommitCount()}"
+            manifestPlaceholders["appIcon"] = "@mipmap/ic_launcher_preview"
+            manifestPlaceholders["appIconRound"] = "@mipmap/ic_launcher_preview_round"
+            matchingFallbacks += commonMatchingFallbacks
+        }
+
+        create("beta") {
+            initWith(release)
+            applicationIdSuffix = ".beta"
+            versionNameSuffix = "-beta-${getLatestCommitCount()}"
+            manifestPlaceholders["appIcon"] = "@mipmap/ic_launcher_preview"
+            manifestPlaceholders["appIconRound"] = "@mipmap/ic_launcher_preview_round"
+            matchingFallbacks += commonMatchingFallbacks
+        }
 
         create("foss") {
             initWith(release)
 
             applicationIdSuffix = ".foss"
-
-            matchingFallbacks.addAll(commonMatchingFallbacks)
+            matchingFallbacks += commonMatchingFallbacks
         }
-        create("preview") {
-            initWith(release)
 
-            applicationIdSuffix = ".debug"
-
-            versionNameSuffix = debug.versionNameSuffix
-            signingConfig = debug.signingConfig
-
-            matchingFallbacks.addAll(commonMatchingFallbacks)
-
-            buildConfigField("String", "BUILD_TIME", "\"${getBuildTime(useLatestCommitTime = false)}\"")
-        }
         create("benchmark") {
             initWith(release)
 
@@ -84,7 +94,7 @@ android {
 
             signingConfig = debug.signingConfig
 
-            matchingFallbacks.addAll(commonMatchingFallbacks)
+            matchingFallbacks += commonMatchingFallbacks
         }
     }
 

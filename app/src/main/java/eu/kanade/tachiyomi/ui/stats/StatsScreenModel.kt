@@ -6,12 +6,17 @@ import cafe.adriel.voyager.core.model.StateScreenModel
 import cafe.adriel.voyager.core.model.screenModelScope
 import eu.kanade.core.util.fastCountNot
 import eu.kanade.presentation.more.stats.StatsScreenState
+import eu.kanade.presentation.more.stats.data.ExtensionInfo
 import eu.kanade.presentation.more.stats.data.StatsData
 import eu.kanade.tachiyomi.data.download.DownloadManager
 import eu.kanade.tachiyomi.data.track.TrackerManager
+import eu.kanade.tachiyomi.extension.ExtensionManager
 import eu.kanade.tachiyomi.source.model.SManga
+import eu.kanade.tachiyomi.source.online.HttpSource
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import tachiyomi.core.common.util.lang.launchIO
+import tachiyomi.domain.history.interactor.GetHistory
 import tachiyomi.domain.history.interactor.GetTotalReadDuration
 import tachiyomi.domain.library.model.LibraryManga
 import tachiyomi.domain.library.service.LibraryPreferences
@@ -19,19 +24,24 @@ import tachiyomi.domain.library.service.LibraryPreferences.Companion.MANGA_HAS_U
 import tachiyomi.domain.library.service.LibraryPreferences.Companion.MANGA_NON_COMPLETED
 import tachiyomi.domain.library.service.LibraryPreferences.Companion.MANGA_NON_READ
 import tachiyomi.domain.manga.interactor.GetLibraryManga
+import tachiyomi.domain.source.service.SourceManager
 import tachiyomi.domain.track.interactor.GetTracks
 import tachiyomi.domain.track.model.Track
 import tachiyomi.source.local.isLocal
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
+import java.util.Calendar
 
 class StatsScreenModel(
     private val downloadManager: DownloadManager = Injekt.get(),
     private val getLibraryManga: GetLibraryManga = Injekt.get(),
     private val getTotalReadDuration: GetTotalReadDuration = Injekt.get(),
     private val getTracks: GetTracks = Injekt.get(),
+    private val getHistory: GetHistory = Injekt.get(),
     private val preferences: LibraryPreferences = Injekt.get(),
     private val trackerManager: TrackerManager = Injekt.get(),
+    private val sourceManager: SourceManager = Injekt.get(),
+    private val extensionManager: ExtensionManager = Injekt.get(),
 ) : StateScreenModel<StatsScreenState>(StatsScreenState.Loading) {
 
     private val loggedInTrackers by lazy { trackerManager.loggedInTrackers() }
@@ -39,13 +49,14 @@ class StatsScreenModel(
     init {
         screenModelScope.launchIO {
             val libraryManga = getLibraryManga.await()
+            val history = getHistory.subscribe("").first()
 
             val distinctLibraryManga = libraryManga.fastDistinctBy { it.id }
 
             val mangaTrackMap = getMangaTrackMap(distinctLibraryManga)
             val scoredMangaTrackerMap = getScoredMangaTrackMap(mangaTrackMap)
 
-            val meanScore = getTrackMeanScore(scoredMangaTrackerMap)
+            val meanScore = getCombinedMeanScore(distinctLibraryManga, scoredMangaTrackerMap)
 
             val overviewStatData = StatsData.Overview(
                 libraryMangaCount = distinctLibraryManga.size,
@@ -68,10 +79,93 @@ class StatsScreenModel(
             )
 
             val trackersStatData = StatsData.Trackers(
-                trackedTitleCount = mangaTrackMap.count { it.value.isNotEmpty() },
+                trackedTitleCount = mangaTrackMap.count { it.value.isNotEmpty() || distinctLibraryManga.find { a -> a.id == it.key }?.manga?.score != null },
                 meanScore = meanScore,
                 trackerCount = loggedInTrackers.size,
             )
+
+            // Extension Usage
+            val installedExtensions = extensionManager.installedExtensionsFlow.first()
+            val extensionUsage = StatsData.ExtensionUsage(
+                topExtensions = distinctLibraryManga
+                    .map { it.manga.source }
+                    .groupingBy { it }.eachCount().entries
+                    .sortedByDescending { it.value }.take(5)
+                    .map { entry ->
+                        val source = sourceManager.getOrStub(entry.key)
+                        val ext = installedExtensions.find { it.sources.any { s -> s.id == entry.key } }
+                        
+                        val repoName = when {
+                            ext?.repoUrl == null -> null
+                            ext.repoUrl!!.contains("github.com/") -> {
+                                ext.repoUrl!!.substringAfter("github.com/").substringBefore("/raw")
+                            }
+                            else -> ext.repoUrl!!.substringAfter("://").substringBefore("/")
+                        }
+
+                        ExtensionInfo(
+                            name = source.name,
+                            count = entry.value,
+                            repo = repoName
+                        )
+                    }
+            )
+
+            // Genre Affinity
+            val genreAffinity = StatsData.GenreAffinity(
+                genreScores = distinctLibraryManga.flatMap { it.manga.genre ?: emptyList() }
+                    .groupingBy { it }.eachCount().entries
+                    .sortedByDescending { it.value }.take(10)
+                    .map { it.toPair() }
+            )
+
+            // Time Distribution
+            val timeDistribution = calculateTimeDistribution(history)
+
+            // Read Habits
+            val readHabits = calculateReadHabits(history, distinctLibraryManga)
+
+            // Score Distribution
+            val scoreDistribution = StatsData.ScoreDistribution(
+                scoredMangaCount = distinctLibraryManga.count { it.manga.score != null } + scoredMangaTrackerMap.size,
+                distribution = getCombinedScoreDistribution(distinctLibraryManga, scoredMangaTrackerMap)
+            )
+
+            // Status Breakdown
+            val statusBreakdown = run {
+                var completed = 0
+                var ongoing = 0
+                var dropped = 0
+                var onHold = 0
+                var planned = 0
+
+                val thirtyDaysAgo = System.currentTimeMillis() - (30L * 24 * 60 * 60 * 1000L)
+
+                distinctLibraryManga.forEach { libraryManga ->
+                    val tracks = mangaTrackMap[libraryManga.id] ?: emptyList()
+                    
+                    // Simple status parsing from tracks
+                    val isDropped = tracks.any { it.status == 4L } // Typically DROPPED
+                    val isOnHold = tracks.any { it.status == 3L } // Typically ON HOLD
+
+                    val isStale = libraryManga.hasStarted && libraryManga.lastRead < thirtyDaysAgo && libraryManga.unreadCount > 0
+
+                    when {
+                        isDropped || (isStale && !libraryManga.manga.favorite) -> dropped++
+                        isOnHold || (isStale && libraryManga.manga.favorite) -> onHold++
+                        libraryManga.manga.status.toInt() == SManga.COMPLETED && libraryManga.unreadCount == 0L -> completed++
+                        libraryManga.hasStarted -> ongoing++
+                        else -> planned++
+                    }
+                }
+                StatsData.StatusBreakdown(
+                    completedCount = completed,
+                    ongoingCount = ongoing,
+                    droppedCount = dropped,
+                    onHoldCount = onHold,
+                    planToReadCount = planned,
+                )
+            }
 
             mutableState.update {
                 StatsScreenState.Success(
@@ -79,21 +173,91 @@ class StatsScreenModel(
                     titles = titlesStatData,
                     chapters = chaptersStatData,
                     trackers = trackersStatData,
+                    extensions = extensionUsage,
+                    timeDistribution = timeDistribution,
+                    genreAffinity = genreAffinity,
+                    readHabits = readHabits,
+                    scores = scoreDistribution,
+                    statuses = statusBreakdown,
                 )
             }
         }
     }
 
-    private fun getGlobalUpdateItemCount(libraryManga: List<LibraryManga>): Int {
-        val includedCategories = preferences.updateCategories.get().map { it.toLong() }
-        val excludedCategories = preferences.updateCategoriesExclude.get().map { it.toLong() }
-        val updateRestrictions = preferences.autoUpdateMangaRestrictions.get()
+    private fun calculateTimeDistribution(history: List<tachiyomi.domain.history.model.HistoryWithRelations>): StatsData.TimeDistribution {
+        val daysDistribution = mutableMapOf<Int, Long>()
+        val weeklyHeatmap = mutableMapOf<Int, Int>()
 
-        return libraryManga.filter {
-            val included = includedCategories.isEmpty() || it.categories.intersect(includedCategories).isNotEmpty()
-            val excluded = it.categories.intersect(excludedCategories).isNotEmpty()
-            included && !excluded
+        history.forEach { item ->
+            val cal = Calendar.getInstance().apply { time = item.readAt ?: return@forEach }
+            val day = cal.get(Calendar.DAY_OF_WEEK)
+            val hour = cal.get(Calendar.HOUR_OF_DAY)
+            
+            daysDistribution[day] = (daysDistribution[day] ?: 0L) + 1
+            weeklyHeatmap[hour] = (weeklyHeatmap[hour] ?: 0) + 1
         }
+        return StatsData.TimeDistribution(daysDistribution, weeklyHeatmap)
+    }
+
+    private fun calculateReadHabits(
+        history: List<tachiyomi.domain.history.model.HistoryWithRelations>,
+        mangaList: List<LibraryManga>
+    ): StatsData.ReadHabits {
+        val now = System.currentTimeMillis()
+        val monthMillis = 30 * 24 * 60 * 60 * 1000L
+
+        val recentHistory = history.filter { (it.readAt?.time ?: 0) > (now - monthMillis) }
+        val sessionsByWeek = recentHistory.groupBy {
+            val cal = Calendar.getInstance().apply { time = it.readAt!! }
+            cal.get(Calendar.WEEK_OF_YEAR)
+        }.size
+        
+        val avgSessions = if (sessionsByWeek > 0) recentHistory.size.toDouble() / 4.0 else 0.0
+
+        val topDayManga = history.filter { (it.readAt?.time ?: 0) > (now - (24 * 60 * 60 * 1000L)) }
+            .groupingBy { it.mangaId }.eachCount().maxByOrNull { it.value }
+            ?.let { entry -> mangaList.find { it.id == entry.key }?.manga?.title }
+
+        val topMonthManga = history.filter { (it.readAt?.time ?: 0) > (now - monthMillis) }
+            .groupingBy { it.mangaId }.eachCount().maxByOrNull { it.value }
+            ?.let { entry -> mangaList.find { it.id == entry.key }?.manga?.title }
+
+        val hourCounts = history.mapNotNull { it.readAt }.map {
+            Calendar.getInstance().apply { time = it }.get(Calendar.HOUR_OF_DAY)
+        }.groupingBy { it }.eachCount()
+        
+        val topHour = hourCounts.maxByOrNull { it.value }?.key ?: 0
+        val preferredTime = when (topHour) {
+            in 5..11 -> "Morning"
+            in 12..17 -> "Afternoon"
+            in 18..22 -> "Evening"
+            else -> "Late Night"
+        }
+
+        return StatsData.ReadHabits(topDayManga, topMonthManga, preferredTime, avgSessions)
+    }
+
+    private fun getGlobalUpdateItemCount(libraryManga: List<LibraryManga>): Int {
+        val includedCategories = preferences.updateCategories().get().map { it.toLong() }
+        val includedManga = if (includedCategories.isNotEmpty()) {
+            libraryManga.filter { manga -> manga.categories.any { it in includedCategories } }
+        } else {
+            libraryManga
+        }
+
+        val excludedCategories = preferences.updateCategoriesExclude().get().map { it.toLong() }
+        val excludedMangaIds = if (excludedCategories.isNotEmpty()) {
+            libraryManga.mapNotNull { manga ->
+                manga.id.takeIf { manga.categories.any { it in excludedCategories } }
+            }
+        } else {
+            emptyList()
+        }
+
+        val updateRestrictions = preferences.autoUpdateMangaRestrictions().get()
+        return includedManga
+            .fastFilter { it.id !in excludedMangaIds }
+            .fastDistinctBy { it.id }
             .fastCountNot {
                 (MANGA_NON_COMPLETED in updateRestrictions && it.manga.status.toInt() == SManga.COMPLETED) ||
                     (MANGA_HAS_UNREAD in updateRestrictions && it.unreadCount != 0L) ||
@@ -121,13 +285,49 @@ class StatsScreenModel(
         }.toMap()
     }
 
-    private fun getTrackMeanScore(scoredMangaTrackMap: Map<Long, List<Track>>): Double {
-        return scoredMangaTrackMap
-            .map { (_, tracks) ->
-                tracks.map(::get10PointScore).average()
+    private fun getCombinedMeanScore(
+        libraryManga: List<LibraryManga>,
+        scoredTrackMap: Map<Long, List<Track>>
+    ): Double {
+        val scores = mutableListOf<Double>()
+        
+        libraryManga.forEach { item ->
+            val localScore = item.manga.score
+            if (localScore != null && localScore > 0) {
+                scores.add(localScore.toDouble())
+            } else {
+                val trackScores = scoredTrackMap[item.id]
+                if (!trackScores.isNullOrEmpty()) {
+                    scores.add(trackScores.map { get10PointScore(it) }.average())
+                }
             }
-            .fastFilter { !it.isNaN() }
-            .average()
+        }
+        
+        return if (scores.isEmpty()) 0.0 else scores.average()
+    }
+
+    private fun getCombinedScoreDistribution(
+        libraryManga: List<LibraryManga>,
+        scoredTrackMap: Map<Long, List<Track>>
+    ): Map<Int, Int> {
+        val distribution = mutableMapOf<Int, Int>()
+        
+        libraryManga.forEach { item ->
+            val localScore = item.manga.score
+            if (localScore != null && localScore > 0) {
+                val scoreInt = localScore.toInt().coerceIn(1, 10)
+                distribution[scoreInt] = (distribution[scoreInt] ?: 0) + 1
+            } else {
+                val trackScores = scoredTrackMap[item.id]
+                if (!trackScores.isNullOrEmpty()) {
+                    val avgScore = trackScores.map { get10PointScore(it) }.average()
+                    val scoreInt = avgScore.toInt().coerceIn(1, 10)
+                    distribution[scoreInt] = (distribution[scoreInt] ?: 0) + 1
+                }
+            }
+        }
+        
+        return distribution
     }
 
     private fun get10PointScore(track: Track): Double {
