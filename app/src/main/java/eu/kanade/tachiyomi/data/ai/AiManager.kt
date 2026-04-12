@@ -1,9 +1,7 @@
 package eu.kanade.tachiyomi.data.ai
 
 import android.content.Context
-import com.hippo.unifile.UniFile
 import eu.kanade.domain.ai.AiPreferences
-import eu.kanade.tachiyomi.BuildConfig
 import eu.kanade.tachiyomi.extension.ExtensionManager
 import eu.kanade.tachiyomi.network.NetworkHelper
 import kotlinx.coroutines.flow.Flow
@@ -17,13 +15,10 @@ import tachiyomi.core.common.util.lang.withIOContext
 import tachiyomi.core.common.util.system.logcat
 import logcat.LogPriority
 import tachiyomi.domain.manga.interactor.GetLibraryManga
-import tachiyomi.domain.storage.service.StorageManager
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
 import java.io.BufferedReader
-import java.io.File
 import java.io.InputStreamReader
-import java.net.InetAddress
 import java.util.concurrent.TimeUnit
 
 class AiManager(
@@ -61,8 +56,6 @@ class AiManager(
         } else {
             aiPreferences.groqApiKey().get()
         }.ifBlank { 
-            // Fallback to internal/user provided key from GH secret if available in BuildConfig
-            // For now, require user to set it
             emit("Please set an AI API Key in Settings > Advanced")
             return@flow 
         }
@@ -169,25 +162,17 @@ class AiManager(
                 }
                 process.waitFor(1, TimeUnit.SECONDS)
                 process.destroy()
-            } catch (e: Exception) {}
+            } catch (e: Exception) {
+                logcat(LogPriority.ERROR) { "AI Manager: Failed to retrieve logs: ${e.message}" }
+            }
 
             if (logLines.isEmpty()) {
-                val storageManager = Injekt.get<StorageManager>()
-                val logDir = storageManager.getLogsDirectory()
-                val latestLog = logDir?.listFiles()
-                    ?.filter { it.isFile && it.name?.endsWith(".log") == true }
-                    ?.maxByOrNull { it.lastModified() }
-                
-                if (latestLog != null) {
-                    latestLog.openInputStream().bufferedReader().useLines { lines ->
-                        logLines.addAll(lines.toList().takeLast(300))
-                    }
-                }
+                return@withIOContext "Diagnostic retrieval active. No logs available via logcat in this environment."
             }
 
             val packagePattern = "(eu\\.kanade|app\\.mihon|AndroidRuntime|libc|DEBUG|System\\.err|FileUtils|ActivityThread)".toRegex()
             val sanitized = logLines.filter { it.contains(packagePattern) }.takeLast(100).joinToString("\n")
-            sanitized.ifBlank { "No relevant logs found." }
+            sanitized.ifBlank { "No relevant application logs found." }
         } catch (e: Exception) {
             "Log retrieval failed: ${e.message}"
         }
