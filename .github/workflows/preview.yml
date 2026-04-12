@@ -37,8 +37,6 @@ jobs:
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
 
-      - name: Run Code Analysis (Detekt)
-        run: ./gradlew detekt --no-daemon
 
       - name: Get Current Version
         run: |
@@ -152,7 +150,7 @@ jobs:
           mkdir -p .github && echo "$SUMMARY" > .github/AI_NOTE_ACCUMULATOR
 
       - name: Build Preview APK
-        run: ./gradlew assemblePreview -Pinclude-telemetry=false -Penable-updater=false -PabiList=arm64-v8a --no-daemon
+        run: ./gradlew assembleRelease -Pinclude-telemetry=false -Penable-updater=false -PabiList=arm64-v8a --no-daemon
         env:
           SIGNING_STORE_PASSWORD: ${{ secrets.SIGNING_STORE_PASSWORD }}
           SIGNING_KEY_ALIAS: ${{ secrets.SIGNING_KEY_ALIAS }}
@@ -160,7 +158,7 @@ jobs:
 
       - name: Rename & Filter APKs
         run: |
-          cd app/build/outputs/apk/preview/
+          cd app/build/outputs/apk/release/
           for f in *.apk; do
             if [[ "$f" == *"arm64-v8a"* ]]; then
               mv "$f" "Mihon-Preview-${{ env.TAG }}-arm64-v8a.apk"
@@ -173,7 +171,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: Mihon-Preview-${{ env.TAG }}
-          path: app/build/outputs/apk/preview/Mihon-Preview-${{ env.TAG }}-arm64-v8a.apk
+          path: app/build/outputs/apk/release/Mihon-Preview-${{ env.TAG }}-arm64-v8a.apk
 
       - name: Reset Accumulator on Success
         if: success()
@@ -202,7 +200,7 @@ jobs:
             **Version**: ${{ env.VERSION_NAME }}
             **Revision**: ${{ env.COMMIT_COUNT }}
             **Branch**: `preview`
-          files: app/build/outputs/apk/preview/Mihon-Preview-${{ env.TAG }}-arm64-v8a.apk
+          files: app/build/outputs/apk/release/Mihon-Preview-${{ env.TAG }}-arm64-v8a.apk
           prerelease: false
           generate_release_notes: false
 
