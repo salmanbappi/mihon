@@ -48,7 +48,7 @@ jobs:
           git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add app/build.gradle.kts
           git commit -m "chore: bump version to ${{ env.NEW_VN }}"
-          git push origin master
+          git push origin main
 
       - name: Build Release APK
         run: |
