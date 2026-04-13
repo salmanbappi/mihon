@@ -339,7 +339,7 @@ class AiManager(
         }
         groqMessages.add(GroqMessage(role = "user", content = finalQuery))
         
-        val requestBody = GroqRequest(messages = groqMessages, model = "llama-3.3-70b-versatile", stream = true)
+        val requestBody = GroqRequest(messages = groqMessages, model = "groq/compound-mini", stream = true)
         val request = Request.Builder()
             .url("https://api.groq.com/openai/v1/chat/completions")
             .header("Authorization", "Bearer $apiKey")
