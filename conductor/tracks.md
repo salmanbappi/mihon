@@ -1,1 +1,5 @@
-# Tracks Registry\n\n| Track ID | Description | Status |\n| :--- | :--- | :--- |
+# Tracks Registry
+
+| Track ID | Description | Status |
+| :--- | :--- | :--- |
+| `anizen-feature-port` | Porting AI Diagnosis, Advanced Analytics, and Command Center from Anizen | Completed |
