@@ -159,6 +159,7 @@ class MangaRepositoryImpl(
                     updateTitle = it.title.isNotBlank(),
                     updateCover = !it.thumbnailUrl.isNullOrBlank(),
                     updateDetails = it.initialized,
+                    mapper = MangaMapper::mapManga,
                 )
                     .awaitAsOne()
             }
