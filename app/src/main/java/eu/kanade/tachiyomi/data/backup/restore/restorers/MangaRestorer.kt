@@ -109,6 +109,8 @@ class MangaRestorer(
             initialized = this.initialized || newer.initialized,
             version = newer.version,
         )
+    }
+
     private suspend fun updateManga(manga: Manga): Manga {
         database.mangasQueries.update(
             source = manga.source,
@@ -334,24 +336,24 @@ class MangaRestorer(
                 val chapter = database.chaptersQueries
                     .getChapterByUrl(history.url)
                     .awaitAsOneOrNull()
-                return@mapNotNull if (chapter == null) {
+                if (chapter == null) {
                     // Chapter doesn't exist; skip
                     null
                 } else {
                     // New history entry
                     item.copy(chapterId = chapter._id)
                 }
+            } else {
+                // Update history entry
+                item.copy(
+                    id = dbHistory._id,
+                    chapterId = dbHistory.chapter_id,
+                    readAt = max(item.readAt?.time ?: 0L, dbHistory.last_read?.time ?: 0L)
+                        .takeIf { it > 0L }
+                        ?.let { Date(it) },
+                    readDuration = max(item.readDuration, dbHistory.time_read) - dbHistory.time_read,
+                )
             }
-
-            // Update history entry
-            item.copy(
-                id = dbHistory._id,
-                chapterId = dbHistory.chapter_id,
-                readAt = max(item.readAt?.time ?: 0L, dbHistory.last_read?.time ?: 0L)
-                    .takeIf { it > 0L }
-                    ?.let { Date(it) },
-                readDuration = max(item.readDuration, dbHistory.time_read) - dbHistory.time_read,
-            )
         }
 
         if (toUpdate.isEmpty()) return
