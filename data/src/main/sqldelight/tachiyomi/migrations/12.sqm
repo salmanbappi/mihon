@@ -1,2 +1,32 @@
+import kotlin.Boolean;
+
+-- Create extension_store if it doesn't exist
+CREATE TABLE IF NOT EXISTS extension_store(
+    index_url TEXT NOT NULL PRIMARY KEY,
+    name TEXT NOT NULL,
+    badge_label TEXT NOT NULL,
+    signing_key TEXT NOT NULL,
+    contact_website TEXT NOT NULL,
+    contact_discord TEXT,
+    is_legacy INTEGER AS Boolean NOT NULL
+);
+
+-- Create dummy extension_repos if it doesn't exist, to avoid "no such table" error
+CREATE TABLE IF NOT EXISTS extension_repos(
+    base_url TEXT NOT NULL PRIMARY KEY,
+    name TEXT NOT NULL,
+    short_name TEXT,
+    signing_key_fingerprint TEXT NOT NULL,
+    website TEXT NOT NULL
+);
+
+-- Migrate data if any exists in extension_repos
+INSERT OR IGNORE INTO extension_store(index_url, name, badge_label, signing_key, contact_website, contact_discord, is_legacy)
+SELECT base_url || '/repo.json', name, coalesce(short_name, name), signing_key_fingerprint, website, NULL, 1 FROM extension_repos;
+
+-- Clean up
+DROP TABLE IF EXISTS extension_repos;
+
+-- Run original 12.sqm statements
 ALTER TABLE mangas ADD COLUMN memo BLOB NOT NULL DEFAULT '{}';
 ALTER TABLE chapters ADD COLUMN memo BLOB NOT NULL DEFAULT '{}';
