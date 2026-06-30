@@ -2,12 +2,16 @@ package eu.kanade.tachiyomi.data.backup.models
 
 import eu.kanade.tachiyomi.source.model.UpdateStrategy
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.protobuf.ProtoNumber
+import mihon.core.common.extensions.EMPTY
+import mihon.core.common.extensions.JsonObjectEmptyBytes
+import tachiyomi.data.MemoColumnAdapter
 import tachiyomi.domain.manga.model.Manga
 
 @Suppress("DEPRECATION")
 @Serializable
-data class BackupManga(
+class BackupManga(
     // in 1.x some of these values have different names
     @ProtoNumber(1) var source: Long,
     // url is called key in 1.x
@@ -45,6 +49,7 @@ data class BackupManga(
     @ProtoNumber(111) var initialized: Boolean = false,
     @ProtoNumber(112) var fetchIntervalDays: Int = 0,
     @ProtoNumber(113) var fetchIntervalTime: Int = 0,
+    @ProtoNumber(114) var memo: ByteArray = JsonObjectEmptyBytes,
 ) {
     fun getMangaImpl(): Manga {
         return Manga.create().copy(
@@ -69,6 +74,7 @@ data class BackupManga(
             initialized = this@BackupManga.initialized,
             fetchIntervalDays = this@BackupManga.fetchIntervalDays,
             fetchIntervalTime = this@BackupManga.fetchIntervalTime,
+            memo = MemoColumnAdapter.decode(this@BackupManga.memo),
         )
     }
 }
