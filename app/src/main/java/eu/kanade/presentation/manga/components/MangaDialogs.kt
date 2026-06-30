@@ -199,8 +199,8 @@ fun SetIntervalDialog(
                     horizontalArrangement = Arrangement.Center,
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    val hourItems = (0..23).map { it.toString().padStart(2, '0') }.toImmutableList()
-                    val minuteItems = (0..59).map { it.toString().padStart(2, '0') }.toImmutableList()
+                    val hourItems = (0..23).map { it.toString().padStart(2, '0') }
+                    val minuteItems = (0..59).map { it.toString().padStart(2, '0') }
 
                     WheelTextPicker(
                         items = hourItems,
