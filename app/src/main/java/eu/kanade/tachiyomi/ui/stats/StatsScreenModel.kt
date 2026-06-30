@@ -97,13 +97,13 @@ class StatsScreenModel(
                     .map { entry ->
                         val source = sourceManager.getOrStub(entry.key)
                         val ext = installedExtensions.find { it.sources.any { s -> s.id == entry.key } }
-                        
+                        val repoUrl = ext?.store?.indexUrl
                         val repoName = when {
-                            ext?.repoUrl == null -> null
-                            ext.repoUrl!!.contains("github.com/") -> {
-                                ext.repoUrl!!.substringAfter("github.com/").substringBefore("/raw")
+                            repoUrl == null -> null
+                            repoUrl.contains("github.com/") -> {
+                                repoUrl.substringAfter("github.com/").substringBefore("/raw")
                             }
-                            else -> ext.repoUrl!!.substringAfter("://").substringBefore("/")
+                            else -> repoUrl.substringAfter("://").substringBefore("/")
                         }
 
                         ExtensionInfo(

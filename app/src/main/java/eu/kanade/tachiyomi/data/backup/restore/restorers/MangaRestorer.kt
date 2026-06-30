@@ -109,8 +109,7 @@ class MangaRestorer(
             initialized = this.initialized || newer.initialized,
             version = newer.version,
         )
-    }
-
+    private suspend fun updateManga(manga: Manga): Manga {
         database.mangasQueries.update(
             source = manga.source,
             url = manga.url,
