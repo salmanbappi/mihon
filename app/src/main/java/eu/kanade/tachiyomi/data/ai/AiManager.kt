@@ -1,5 +1,6 @@
 package eu.kanade.tachiyomi.data.ai
 
+import android.content.Context
 import dev.zacsweers.metro.AppScope
 import dev.zacsweers.metro.Inject
 import dev.zacsweers.metro.SingleIn
