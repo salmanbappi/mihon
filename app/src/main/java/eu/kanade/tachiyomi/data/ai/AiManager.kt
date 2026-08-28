@@ -1,6 +1,8 @@
 package eu.kanade.tachiyomi.data.ai
 
-import android.content.Context
+import dev.zacsweers.metro.AppScope
+import dev.zacsweers.metro.Inject
+import dev.zacsweers.metro.SingleIn
 import eu.kanade.domain.ai.AiPreferences
 import eu.kanade.tachiyomi.BuildConfig
 import eu.kanade.tachiyomi.extension.ExtensionManager
@@ -17,21 +19,22 @@ import okhttp3.RequestBody.Companion.toRequestBody
 import tachiyomi.core.common.util.lang.withIOContext
 import tachiyomi.core.common.util.system.logcat
 import logcat.LogPriority
-import uy.kohesive.injekt.Injekt
-import uy.kohesive.injekt.api.get
+import tachiyomi.domain.manga.interactor.GetLibraryManga
 import tachiyomi.domain.storage.service.StorageManager
 import java.io.File
 import java.io.BufferedReader
 import java.io.InputStreamReader
 import java.util.concurrent.TimeUnit
 
+@Inject
+@SingleIn(AppScope::class)
 class AiManager(
     private val context: Context,
-    private val networkHelper: NetworkHelper = Injekt.get(),
-    private val aiPreferences: AiPreferences = Injekt.get(),
-    private val extensionManager: ExtensionManager = Injekt.get(),
-    private val getLibraryManga: tachiyomi.domain.manga.interactor.GetLibraryManga = Injekt.get(),
-    private val json: Json = Injekt.get(),
+    private val networkHelper: NetworkHelper,
+    private val aiPreferences: AiPreferences,
+    private val extensionManager: ExtensionManager,
+    private val getLibraryManga: GetLibraryManga,
+    private val json: Json,
 ) {
     private val jsonMediaType = "application/json; charset=utf-8".toMediaType()
 

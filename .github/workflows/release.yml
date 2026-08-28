@@ -149,7 +149,7 @@ jobs:
           echo "EOF" >> $GITHUB_ENV
 
       - name: Create GitHub Release
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@v2
         with:
           tag_name: v${{ env.NEW_VN }}
           name: Mihon Release v${{ env.NEW_VN }}

@@ -67,6 +67,12 @@ class Bangumi(id: Long) : BaseTracker(id, "Bangumi") {
     }
 
     override suspend fun search(query: String): List<TrackSearch> {
+        if (query.startsWith(SEARCH_ID_PREFIX)) {
+            query.substringAfter(SEARCH_ID_PREFIX).trim().toIntOrNull()?.let { id ->
+                return api.getMangaDetails(id)?.let { listOf(it) } ?: emptyList()
+            }
+        }
+
         return api.search(query)
     }
 
@@ -106,8 +112,9 @@ class Bangumi(id: Long) : BaseTracker(id, "Bangumi") {
             // Users can set a 'username' (not nickname) once which effectively
             // replaces the stringified ID in certain queries.
             // If no username is set, the API returns the user ID as a strings
-            val username = api.getUsername()
-            saveCredentials(username, oauth.accessToken)
+            val currentUser = api.getCurrentUser()
+            saveDisplayUsername(currentUser.nickname?.takeIf { it.isNotBlank() } ?: currentUser.username)
+            saveCredentials(currentUser.username, oauth.accessToken)
         } catch (_: Throwable) {
             logout()
         }
@@ -140,5 +147,7 @@ class Bangumi(id: Long) : BaseTracker(id, "Bangumi") {
 
         private val SCORE_LIST = IntRange(0, 10)
             .map(Int::toString)
+
+        private const val SEARCH_ID_PREFIX = "id:"
     }
 }

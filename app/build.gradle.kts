@@ -12,6 +12,7 @@ plugins {
     alias(mihonx.plugins.compose)
     alias(mihonx.plugins.spotless)
 
+    alias(libs.plugins.metro)
     alias(libs.plugins.aboutLibraries)
     alias(libs.plugins.androidx.baselineProfile)
     alias(libs.plugins.kotlin.serialization)
@@ -32,8 +33,8 @@ android {
     defaultConfig {
         applicationId = "app.mihon"
 
-        versionCode = 25
-        versionName = "0.20.1"
+        versionCode = 29
+        versionName = "0.20.4"
 
         buildConfigField("String", "COMMIT_COUNT", "\"${getLatestCommitCount()}\"")
         buildConfigField("String", "COMMIT_SHA", "\"${getLatestCommitSha()}\"")
@@ -96,8 +97,8 @@ android {
             manifestPlaceholders["appIconRound"] = "@mipmap/ic_launcher"
         }
         val release = getByName("release") {
-            isMinifyEnabled = Config.enableCodeShrink
-            isShrinkResources = Config.enableCodeShrink
+            isMinifyEnabled = true
+            isShrinkResources = true
 
             signingConfig = debug.signingConfig
 
@@ -140,6 +141,9 @@ android {
             applicationIdSuffix = ".foss"
             matchingFallbacks += commonMatchingFallbacks
         }
+        create("nightly") {
+            initWith(release)
+        }
 
         create("benchmark") {
             initWith(release)
@@ -154,7 +158,7 @@ android {
     }
 
     sourceSets {
-        getByName("preview").res.directories.add("src/debug/res")
+        getByName("nightly").res.directories.add("src/debug/res")
         getByName("benchmark").res.directories.add("src/debug/res")
     }
 
@@ -242,6 +246,7 @@ dependencies {
     implementation(projects.i18n)
     implementation(projects.core.archive)
     implementation(projects.core.common)
+    implementation(projects.core.metro)
     implementation(projects.coreMetadata)
     implementation(projects.sourceApi)
     implementation(projects.sourceLocal)
@@ -274,6 +279,8 @@ dependencies {
     implementation(libs.bundles.kotlinx.coroutines)
 
     implementation(libs.sqldelight.async)
+
+    implementation(libs.kotlinx.datetime)
 
     // AndroidX libraries
     implementation(libs.androidx.annotation)
@@ -314,6 +321,9 @@ dependencies {
 
     // Dependency injection
     implementation(libs.injekt)
+    implementation(libs.metro.runtime)
+    implementation(libs.metrox.viewmodel)
+    implementation(libs.metrox.viewmodel.compose)
 
     // Image loading
     implementation(libs.bundles.coil)
@@ -321,6 +331,9 @@ dependencies {
         exclude(module = "image-decoder")
     }
     implementation(libs.image.decoder)
+
+    implementation(libs.webgpuviewer)
+    implementation(libs.kim)
 
     // UI libraries
     implementation(libs.material)

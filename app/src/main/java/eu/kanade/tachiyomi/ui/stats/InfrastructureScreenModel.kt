@@ -1,11 +1,15 @@
 package eu.kanade.tachiyomi.ui.stats
 
-import android.app.Application
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
-import cafe.adriel.voyager.core.model.StateScreenModel
-import cafe.adriel.voyager.core.model.screenModelScope
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
+import dev.zacsweers.metro.AppScope
+import dev.zacsweers.metro.ContributesIntoMap
+import dev.zacsweers.metro.Inject
+import dev.zacsweers.metro.binding
+import dev.zacsweers.metrox.viewmodel.ViewModelKey
 import eu.kanade.tachiyomi.network.NetworkHelper
 import eu.kanade.tachiyomi.network.model.*
 import eu.kanade.tachiyomi.source.online.HttpSource
@@ -25,18 +29,22 @@ import tachiyomi.domain.library.service.LibraryPreferences
 import tachiyomi.domain.source.service.SourceHealthCache
 import tachiyomi.domain.source.service.SourceManager
 import tachiyomi.source.local.isLocal
-import uy.kohesive.injekt.Injekt
-import uy.kohesive.injekt.api.get
 import java.net.InetAddress
 import java.util.concurrent.TimeUnit
 import kotlin.system.measureTimeMillis
 
+@Inject
+@ViewModelKey
+@ContributesIntoMap(AppScope::class, binding = binding<ViewModel>())
 class InfrastructureScreenModel(
-    private val context: Application = Injekt.get(),
-    private val sourceManager: SourceManager = Injekt.get(),
-    private val networkHelper: NetworkHelper = Injekt.get(),
-    private val libraryPreferences: LibraryPreferences = Injekt.get(),
-) : StateScreenModel<InfrastructureState>(InfrastructureState.Loading) {
+    private val context: Context,
+    private val sourceManager: SourceManager,
+    private val networkHelper: NetworkHelper,
+    private val libraryPreferences: LibraryPreferences,
+) : ViewModel() {
+
+    val state: StateFlow<InfrastructureState>
+        field = MutableStateFlow<InfrastructureState>(InfrastructureState.Loading)
 
     private val _isRefreshing = MutableStateFlow(false)
     val isRefreshing: StateFlow<Boolean> = _isRefreshing.asStateFlow()
@@ -76,7 +84,7 @@ class InfrastructureScreenModel(
         val clip = ClipData.newPlainText("Mihon Extension Health Report", sb.toString())
         clipboard.setPrimaryClip(clip)
 
-        screenModelScope.launchIO {
+        viewModelScope.launchIO {
             _events.send(Event.ReportCopied)
         }
     }
@@ -85,7 +93,7 @@ class InfrastructureScreenModel(
         if (_isRefreshing.value) return
         _isRefreshing.value = true
         
-        screenModelScope.launchIO {
+        viewModelScope.launchIO {
             val sources = sourceManager.getOnlineSources()
                 .filter { !it.isLocal() }
             
@@ -93,7 +101,7 @@ class InfrastructureScreenModel(
                 createPlaceholderNode(source)
             }
             
-            mutableState.update { 
+            state.update { 
                 InfrastructureState.Success(InfrastructureReport(initialNodes, generateEmptyMetrics(initialNodes.size), emptyList()))
             }
 
@@ -126,7 +134,7 @@ class InfrastructureScreenModel(
                 avgLatency = if (nodes.isNotEmpty()) nodes.filter { it.status == NodeStatus.OPERATIONAL }.map { it.network.latency }.average().toInt() else 0,
             )
 
-            mutableState.update {
+            state.update {
                 InfrastructureState.Success(InfrastructureReport(sortedNodes, metrics, logs))
             }
             _isRefreshing.value = false
@@ -146,7 +154,7 @@ class InfrastructureScreenModel(
     }
 
     private fun updateNodeInState(node: SourceNode) {
-        mutableState.update { state ->
+        state.update { state ->
             if (state is InfrastructureState.Success) {
                 val updatedNodes = state.report.nodes.map { if (it.name == node.name) node else it }
                 state.copy(report = state.report.copy(nodes = updatedNodes))
