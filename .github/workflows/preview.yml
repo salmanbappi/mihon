@@ -188,7 +188,7 @@ jobs:
           key: ai-note-acc-${{ github.ref_name }}-${{ github.run_id }}
 
       - name: Create Release in Preview Repo
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@v2
         with:
           repository: salmanbappi/mihon-preview
           token: ${{ secrets.GH_PAT || github.token }}
