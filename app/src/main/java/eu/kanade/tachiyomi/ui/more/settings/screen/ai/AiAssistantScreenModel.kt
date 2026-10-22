@@ -1,7 +1,12 @@
 package eu.kanade.tachiyomi.ui.more.settings.screen.ai
 
-import cafe.adriel.voyager.core.model.StateScreenModel
-import cafe.adriel.voyager.core.model.screenModelScope
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
+import dev.zacsweers.metro.AppScope
+import dev.zacsweers.metro.ContributesIntoMap
+import dev.zacsweers.metro.Inject
+import dev.zacsweers.metro.binding
+import dev.zacsweers.metrox.viewmodel.ViewModelKey
 import eu.kanade.domain.ai.AiPreferences
 import eu.kanade.tachiyomi.data.ai.AiManager
 import kotlinx.collections.immutable.ImmutableList
@@ -14,19 +19,23 @@ import kotlinx.coroutines.flow.update
 import tachiyomi.core.common.util.lang.launchIO
 import tachiyomi.core.common.util.system.logcat
 import logcat.LogPriority
-import uy.kohesive.injekt.Injekt
-import uy.kohesive.injekt.api.get
 
+@Inject
+@ViewModelKey
+@ContributesIntoMap(AppScope::class, binding = binding<ViewModel>())
 class AiAssistantScreenModel(
-    private val aiPreferences: AiPreferences = Injekt.get(),
-    private val aiManager: AiManager = Injekt.get(),
-) : StateScreenModel<AiAssistantScreenModel.State>(State()) {
+    private val aiPreferences: AiPreferences,
+    private val aiManager: AiManager,
+) : ViewModel() {
+
+    val state: StateFlow<State>
+        field = MutableStateFlow(State())
 
     private val _sessions = MutableStateFlow<ImmutableList<ChatSession>>(persistentListOf(ChatSession(1, "Diagnostic Uplink")))
     val sessions: StateFlow<ImmutableList<ChatSession>> = _sessions.asStateFlow()
 
     init {
-        mutableState.update { it.copy(activeSessionId = 1) }
+        state.update { it.copy(activeSessionId = 1) }
     }
 
     fun createNewSession() {
@@ -37,7 +46,7 @@ class AiAssistantScreenModel(
     }
 
     fun switchSession(sessionId: Long) {
-        mutableState.update { it.copy(activeSessionId = sessionId, messages = persistentListOf()) }
+        state.update { it.copy(activeSessionId = sessionId, messages = persistentListOf()) }
     }
 
     fun deleteSession(sessionId: Long) {
@@ -50,14 +59,14 @@ class AiAssistantScreenModel(
 
     fun resetSystem() {
         aiManager.resetCircuitBreaker()
-        mutableState.update { it.copy(messages = persistentListOf(), streamingMessage = null, isLoading = false) }
+        state.update { it.copy(messages = persistentListOf(), streamingMessage = null, isLoading = false) }
     }
 
     fun sendMessage(query: String) {
         if (query.isBlank() || state.value.isLoading) return
 
         val userMsg = ChatMessage(role = "user", content = query)
-        mutableState.update { 
+        state.update { 
             it.copy(
                 messages = (it.messages + userMsg).toImmutableList(),
                 isLoading = true,
@@ -65,18 +74,18 @@ class AiAssistantScreenModel(
             )
         }
 
-        screenModelScope.launchIO {
+        viewModelScope.launchIO {
             try {
                 val history = state.value.messages.dropLast(1).map { AiManager.ChatMessage(it.role, it.content) }
                 val fullResponse = StringBuilder()
                 
                 aiManager.chatWithAssistantStream(query, history).collect { chunk ->
                     fullResponse.append(chunk)
-                    mutableState.update { it.copy(streamingMessage = fullResponse.toString()) }
+                    state.update { it.copy(streamingMessage = fullResponse.toString()) }
                 }
 
                 val finalMsg = ChatMessage(role = "model", content = fullResponse.toString())
-                mutableState.update { 
+                state.update { 
                     it.copy(
                         messages = (it.messages + finalMsg).toImmutableList(),
                         isLoading = false,
@@ -93,7 +102,7 @@ class AiAssistantScreenModel(
             } catch (e: Exception) {
                 logcat(LogPriority.ERROR, e)
                 val errorMsg = ChatMessage(role = "model", content = "System error during uplink: ${e.message}")
-                mutableState.update { it.copy(messages = (it.messages + errorMsg).toImmutableList(), isLoading = false, streamingMessage = null) }
+                state.update { it.copy(messages = (it.messages + errorMsg).toImmutableList(), isLoading = false, streamingMessage = null) }
             }
         }
     }

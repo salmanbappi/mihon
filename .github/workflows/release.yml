@@ -30,9 +30,9 @@ jobs:
           fetch-depth: 0
 
       - name: Set up JDK
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
-          java-version: 17
+          java-version-file: .github/.java-version
           distribution: temurin
 
       - name: Set up Gradle
@@ -149,7 +149,7 @@ jobs:
           echo "EOF" >> $GITHUB_ENV
 
       - name: Create GitHub Release
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@v2
         with:
           tag_name: v${{ env.NEW_VN }}
           name: Mihon Release v${{ env.NEW_VN }}

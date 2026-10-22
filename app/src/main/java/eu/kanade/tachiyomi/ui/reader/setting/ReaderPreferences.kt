@@ -3,11 +3,17 @@ package eu.kanade.tachiyomi.ui.reader.setting
 import android.os.Build
 import androidx.compose.ui.graphics.BlendMode
 import dev.icerock.moko.resources.StringResource
+import dev.zacsweers.metro.AppScope
+import dev.zacsweers.metro.Inject
+import dev.zacsweers.metro.SingleIn
 import tachiyomi.core.common.preference.Preference
 import tachiyomi.core.common.preference.PreferenceStore
 import tachiyomi.core.common.preference.getEnum
+import tachiyomi.core.common.preference.getEnumSet
 import tachiyomi.i18n.MR
 
+@Inject
+@SingleIn(AppScope::class)
 class ReaderPreferences(
     preferenceStore: PreferenceStore,
 ) {
@@ -15,6 +21,11 @@ class ReaderPreferences(
     // region General
 
     val pageTransitions: Preference<Boolean> = preferenceStore.getBoolean("pref_enable_transitions_key", true)
+
+    val loadAheadOnlyOverWifi: Preference<Boolean> = preferenceStore.getBoolean(
+        "pref_reader_load_ahead_only_over_wifi",
+        true,
+    )
 
     val flashOnPageChange: Preference<Boolean> = preferenceStore.getBoolean("pref_reader_flash", false)
 
@@ -28,14 +39,19 @@ class ReaderPreferences(
 
     val showPageNumber: Preference<Boolean> = preferenceStore.getBoolean("pref_show_page_number_key", true)
 
-    val verticalNavigatorForLongStrip: Preference<Boolean> = preferenceStore.getBoolean(
-        "pref_webtoon_vertical_navigator",
-        true,
+    val verticalNavigator: Preference<Set<ReadingMode>> = preferenceStore.getEnumSet(
+        "pref_vertical_navigator",
+        emptySet(),
     )
 
     val verticalNavigatorOnLeft: Preference<Boolean> = preferenceStore.getBoolean(
-        "pref_webtoon_vertical_navigator_on_left",
+        "pref_vertical_navigator_on_left",
         false,
+    )
+
+    val verticalNavigatorHeight: Preference<Int> = preferenceStore.getInt(
+        "pref_vertical_navigator_height",
+        65,
     )
 
     val showReadingMode: Preference<Boolean> = preferenceStore.getBoolean("pref_show_reading_mode", true)

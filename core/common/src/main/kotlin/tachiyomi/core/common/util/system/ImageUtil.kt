@@ -9,7 +9,6 @@ import android.graphics.BitmapRegionDecoder
 import android.graphics.Color
 import android.graphics.Matrix
 import android.graphics.Rect
-import android.graphics.drawable.ColorDrawable
 import android.graphics.drawable.Drawable
 import android.graphics.drawable.GradientDrawable
 import android.os.Build
@@ -338,8 +337,16 @@ object ImageUtil {
         val image = decoder?.decode()
         decoder?.recycle()
 
+        if (image == null) return Color.WHITE.toDrawable()
+        return try {
+            chooseBackground(context, image)
+        } finally {
+            image.recycle()
+        }
+    }
+
+    private fun chooseBackground(context: Context, image: Bitmap): Drawable {
         val whiteColor = Color.WHITE
-        if (image == null) return whiteColor.toDrawable()
         if (image.width < 50 || image.height < 50) {
             return whiteColor.toDrawable()
         }

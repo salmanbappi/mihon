@@ -35,7 +35,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import cafe.adriel.voyager.core.model.rememberScreenModel
+import dev.zacsweers.metrox.viewmodel.metroViewModel
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
 import eu.kanade.domain.ai.AiPreferences
@@ -58,7 +58,7 @@ class AiAssistantScreen : Screen() {
     @Composable
     override fun Content() {
         val navigator = LocalNavigator.currentOrThrow
-        val screenModel = rememberScreenModel { AiAssistantScreenModel() }
+        val screenModel = metroViewModel<AiAssistantScreenModel>()
         val state by screenModel.state.collectAsState()
         val sessions by screenModel.sessions.collectAsState()
         
