@@ -37,7 +37,7 @@ android {
     defaultConfig {
         applicationId = "app.mihon"
 
-        versionCode = 39
+        versionCode = 38
         versionName = "0.21.2"
 
         buildConfigField("boolean", "TELEMETRY_INCLUDED", "${Config.includeTelemetry}")
@@ -95,13 +95,10 @@ android {
             isMinifyEnabled = true
             isShrinkResources = true
 
-            signingConfig = debug.signingConfig
-
             isProfileable = true
 
             proguardFiles("proguard-android-optimize.txt", "proguard-rules.pro")
 
-            buildConfigField("String", "BUILD_TIME", "\"${getBuildTime(useLatestCommitTime = true)}\"")
             manifestPlaceholders["appIcon"] = "@mipmap/ic_launcher"
             manifestPlaceholders["appIconRound"] = "@mipmap/ic_launcher"
 
@@ -113,7 +110,7 @@ android {
         create("preview") {
             initWith(release)
             applicationIdSuffix = ".preview"
-            versionNameSuffix = "-preview-${getLatestCommitCount()}"
+            versionNameSuffix = "-preview-${getLatestCommitCount().get()}"
             manifestPlaceholders["appIcon"] = "@mipmap/ic_launcher_preview"
             manifestPlaceholders["appIconRound"] = "@mipmap/ic_launcher_preview"
             matchingFallbacks += commonMatchingFallbacks
@@ -123,7 +120,7 @@ android {
         create("beta") {
             initWith(release)
             applicationIdSuffix = ".beta"
-            versionNameSuffix = "-beta-${getLatestCommitCount()}"
+            versionNameSuffix = "-beta-${getLatestCommitCount().get()}"
             manifestPlaceholders["appIcon"] = "@mipmap/ic_launcher_preview"
             manifestPlaceholders["appIconRound"] = "@mipmap/ic_launcher_preview"
             matchingFallbacks += commonMatchingFallbacks
