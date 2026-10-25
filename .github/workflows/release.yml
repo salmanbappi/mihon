@@ -79,11 +79,11 @@ jobs:
           fi
           
           mkdir -p .github/ai
-          # 1. Get commits (subjects and bodies)
-          git log $RANGE --pretty=format:"- %s%n%b" | grep -v "chore: bump version" > .github/ai/commits.txt || echo "New version release." > .github/ai/commits.txt
+          # 1. Get commits (subjects and bodies, capped for stability)
+          git log $RANGE --pretty=format:"- %s%n%b" | grep -v "chore: bump version" | head -n 100 > .github/ai/commits.txt || echo "New version release." > .github/ai/commits.txt
           
-          # 2. Get file change statistics
-          git diff --stat $RANGE > .github/ai/files.txt
+          # 2. Get file change statistics (capped for stability)
+          git diff --stat $RANGE | head -n 50 > .github/ai/files.txt
           
           # 3. Get actual code diff (capped at 200 lines for stability)
           git diff -U1 $RANGE | head -n 200 > .github/ai/diff.txt
@@ -114,7 +114,7 @@ jobs:
           $DIFF
           EOF
           
-          PAYLOAD=$(jq -n \
+          jq -n \
             --rawfile prompt .github/ai/full_prompt.txt \
             --arg model "llama-3.3-70b-versatile" \
             '{
@@ -122,13 +122,13 @@ jobs:
               messages: [{role: "user", content: $prompt}],
               temperature: 0.7,
               max_tokens: 1024
-            }')
+            }' > .github/ai/payload.json
           
           echo "Requesting AI summary from Groq (llama-3.3-70b-versatile)..."
           RESPONSE=$(curl -s -X POST "https://api.groq.com/openai/v1/chat/completions" \
             -H "Authorization: Bearer $GROQ_API_KEY" \
             -H "Content-Type: application/json" \
-            -d "$PAYLOAD")
+            --data-binary @.github/ai/payload.json || true)
           
           # Debug: Log the response status/error (excluding full body if successful)
           ERROR_MSG=$(echo "$RESPONSE" | jq -r '.error.message // empty')
