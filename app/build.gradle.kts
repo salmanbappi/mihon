@@ -37,8 +37,8 @@ android {
     defaultConfig {
         applicationId = "app.mihon"
 
-        versionCode = 39
-        versionName = "0.21.3"
+        versionCode = 38
+        versionName = "0.21.2"
 
         buildConfigField("boolean", "TELEMETRY_INCLUDED", "${Config.includeTelemetry}")
         buildConfigField("boolean", "UPDATER_ENABLED", "${Config.enableUpdater}")
@@ -54,7 +54,7 @@ android {
             val pKeyPassword = System.getenv("SIGNING_KEY_PASSWORD")
 
             if (keystore != null && pStorePassword != null && pKeyAlias != null && pKeyPassword != null) {
-                storeFile = rootProject.file(keystore)
+                storeFile = layout.settingsDirectory.file(keystore).asFile
                 storePassword = pStorePassword
                 keyAlias = pKeyAlias
                 keyPassword = pKeyPassword
