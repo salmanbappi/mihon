@@ -23,8 +23,9 @@ import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withPermit
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import okhttp3.Request
-import tachiyomi.core.common.util.lang.launchIO
 import tachiyomi.domain.library.service.LibraryPreferences
 import tachiyomi.domain.source.service.SourceHealthCache
 import tachiyomi.domain.source.service.SourceManager
@@ -84,7 +85,7 @@ class InfrastructureScreenModel(
         val clip = ClipData.newPlainText("Mihon Extension Health Report", sb.toString())
         clipboard.setPrimaryClip(clip)
 
-        viewModelScope.launchIO {
+        viewModelScope.launch(Dispatchers.IO) {
             _events.send(Event.ReportCopied)
         }
     }
@@ -93,7 +94,7 @@ class InfrastructureScreenModel(
         if (_isRefreshing.value) return
         _isRefreshing.value = true
         
-        viewModelScope.launchIO {
+        viewModelScope.launch(Dispatchers.IO) {
             val sources = sourceManager.getOnlineSources()
                 .filter { !it.isLocal() }
             

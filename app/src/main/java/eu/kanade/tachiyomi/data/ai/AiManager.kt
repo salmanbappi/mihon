@@ -12,12 +12,13 @@ import com.hippo.unifile.UniFile
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
-import tachiyomi.core.common.util.lang.withIOContext
 import tachiyomi.core.common.util.system.logcat
 import logcat.LogPriority
 import tachiyomi.domain.manga.interactor.GetLibraryManga
@@ -127,7 +128,7 @@ class AiManager(
 
     private suspend fun getExtensionsSummary(): String {
         return try {
-            val installed = extensionManager.installedExtensionsFlow.first()
+            val installed = extensionManager.loadedExtensionsFlow.first()
             if (installed.isEmpty()) return "REAL_DATA: No extensions installed."
             installed.joinToString("\n") { "- ${it.name} v${it.versionName} [Update: ${it.hasUpdate}]" }
         } catch (e: Exception) { "DATA_ERROR: Extensions inaccessible." }
@@ -194,7 +195,7 @@ class AiManager(
         aiPreferences.isRequestPending().set(false)
     }
 
-    private suspend fun getSanitizedLogs(): String = withIOContext {
+    private suspend fun getSanitizedLogs(): String = withContext(Dispatchers.IO) {
         try {
             val logLines = mutableListOf<String>()
             try {
@@ -234,7 +235,7 @@ class AiManager(
         }
     }
 
-    suspend fun getErrorCount(): Int = withIOContext {
+    suspend fun getErrorCount(): Int = withContext(Dispatchers.IO) {
         try {
             val logLines = mutableListOf<String>()
             val process = Runtime.getRuntime().exec("logcat -d -b main -t 200 *:E")

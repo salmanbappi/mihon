@@ -12,11 +12,12 @@ import eu.kanade.tachiyomi.data.ai.AiManager
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toImmutableList
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
-import tachiyomi.core.common.util.lang.launchIO
+import kotlinx.coroutines.launch
 import tachiyomi.core.common.util.system.logcat
 import logcat.LogPriority
 
@@ -74,7 +75,7 @@ class AiAssistantScreenModel(
             )
         }
 
-        viewModelScope.launchIO {
+        viewModelScope.launch(Dispatchers.IO) {
             try {
                 val history = state.value.messages.dropLast(1).map { AiManager.ChatMessage(it.role, it.content) }
                 val fullResponse = StringBuilder()

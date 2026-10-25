@@ -107,19 +107,19 @@ object SettingsAiScreen : SearchableSettings {
                         "gemini" to "Google Gemini (Analytical)",
                         "groq" to "Groq (High-Speed Inference)",
                     ),
-                    enabled = enableAi,
+                    visible = enableAi,
                 ),
                 Preference.PreferenceItem.EditTextPreference(
                     preference = aiPreferences.geminiApiKey(),
                     title = "Gemini API Key",
                     subtitle = "Used for Gemini processing",
-                    enabled = enableAi && aiEngine == "gemini",
+                    visible = enableAi && aiEngine == "gemini",
                 ),
                 Preference.PreferenceItem.EditTextPreference(
                     preference = aiPreferences.groqApiKey(),
                     title = "Groq API Key",
                     subtitle = "Used for high-speed inference",
-                    enabled = enableAi && aiEngine == "groq",
+                    visible = enableAi && aiEngine == "groq",
                 )
             ),
         )
@@ -131,7 +131,7 @@ object SettingsAiScreen : SearchableSettings {
 
         return Preference.PreferenceGroup(
             title = "Diagnostic Assistant",
-            enabled = enableAi,
+            visible = enableAi,
             preferenceItems = persistentListOf(
                 Preference.PreferenceItem.SwitchPreference(
                     preference = aiPreferences.enableAiAssistant(),
@@ -163,7 +163,7 @@ object SettingsAiScreen : SearchableSettings {
 
         return Preference.PreferenceGroup(
             title = "Advanced Analytics",
-            enabled = enableAi,
+            visible = enableAi,
             preferenceItems = persistentListOf(
                 Preference.PreferenceItem.SwitchPreference(
                     preference = aiPreferences.enableAiStatistics(),

@@ -38,6 +38,9 @@ import tachiyomi.domain.track.interactor.GetTracksPerManga
 import tachiyomi.domain.track.model.Track
 import tachiyomi.source.local.isLocal
 import java.util.Calendar
+import kotlin.time.Clock
+import kotlin.time.Duration.Companion.days
+import kotlin.time.Instant
 
 @Inject
 @ViewModelKey
@@ -100,7 +103,7 @@ class StatsViewModel(
             )
 
             // Extension Usage
-            val installedExtensions = extensionManager.installedExtensionsFlow.first()
+            val installedExtensions = extensionManager.loadedExtensionsFlow.first()
             val extensionUsage = StatsData.ExtensionUsage(
                 topExtensions = distinctLibraryManga
                     .map { it.manga.source }
@@ -154,7 +157,7 @@ class StatsViewModel(
                 var onHold = 0
                 var planned = 0
 
-                val thirtyDaysAgo = System.currentTimeMillis() - (30L * 24 * 60 * 60 * 1000L)
+                val thirtyDaysAgo = Clock.System.now() - 30.days
 
                 distinctLibraryManga.forEach { libraryManga ->
                     val tracks = mangaTrackMap[libraryManga.id] ?: emptyList()
@@ -163,7 +166,7 @@ class StatsViewModel(
                     val isDropped = tracks.any { it.status == 4L } // Typically DROPPED
                     val isOnHold = tracks.any { it.status == 3L } // Typically ON HOLD
 
-                    val isStale = libraryManga.hasStarted && libraryManga.lastRead < thirtyDaysAgo && libraryManga.unreadCount > 0
+                    val isStale = libraryManga.hasStarted && libraryManga.lastRead?.let { it < thirtyDaysAgo } == true && libraryManga.unreadCount > 0
 
                     when {
                         isDropped || (isStale && !libraryManga.manga.favorite) -> dropped++
@@ -230,7 +233,7 @@ class StatsViewModel(
             Read Habits: ${currentState.readHabits.preferredReadTime} cycle, ${currentState.readHabits.avgSessionsPerWeek} sessions/week
         """.trimIndent()
 
-        viewModelScope.launchIO {
+        viewModelScope.launch(Dispatchers.IO) {
             val fullAnalysis = StringBuilder()
             try {
                 aiManager.getStatisticsAnalysisStream(summary).collect { chunk ->
@@ -266,7 +269,7 @@ class StatsViewModel(
         val weeklyHeatmap = mutableMapOf<Int, Int>()
 
         history.forEach { item ->
-            val cal = Calendar.getInstance().apply { time = item.readAt ?: return@forEach }
+            val cal = Calendar.getInstance().apply { timeInMillis = item.readAt?.toEpochMilliseconds() ?: return@forEach }
             val day = cal.get(Calendar.DAY_OF_WEEK)
             val hour = cal.get(Calendar.HOUR_OF_DAY)
             
@@ -280,27 +283,28 @@ class StatsViewModel(
         history: List<tachiyomi.domain.history.model.HistoryWithRelations>,
         mangaList: List<LibraryManga>
     ): StatsData.ReadHabits {
-        val now = System.currentTimeMillis()
-        val monthMillis = 30 * 24 * 60 * 60 * 1000L
+        val now = Clock.System.now()
+        val thirtyDaysAgo = now - 30.days
+        val oneDayAgo = now - 1.days
 
-        val recentHistory = history.filter { (it.readAt?.time ?: 0) > (now - monthMillis) }
+        val recentHistory = history.filter { (it.readAt ?: Instant.DISTANT_PAST) > thirtyDaysAgo }
         val sessionsByWeek = recentHistory.groupBy {
-            val cal = Calendar.getInstance().apply { time = it.readAt!! }
+            val cal = Calendar.getInstance().apply { timeInMillis = it.readAt!!.toEpochMilliseconds() }
             cal.get(Calendar.WEEK_OF_YEAR)
         }.size
         
         val avgSessions = if (sessionsByWeek > 0) recentHistory.size.toDouble() / 4.0 else 0.0
 
-        val topDayManga = history.filter { (it.readAt?.time ?: 0) > (now - (24 * 60 * 60 * 1000L)) }
+        val topDayManga = history.filter { (it.readAt ?: Instant.DISTANT_PAST) > oneDayAgo }
             .groupingBy { it.mangaId }.eachCount().maxByOrNull { it.value }
             ?.let { entry -> mangaList.find { it.id == entry.key }?.manga?.title }
 
-        val topMonthManga = history.filter { (it.readAt?.time ?: 0) > (now - monthMillis) }
+        val topMonthManga = history.filter { (it.readAt ?: Instant.DISTANT_PAST) > thirtyDaysAgo }
             .groupingBy { it.mangaId }.eachCount().maxByOrNull { it.value }
             ?.let { entry -> mangaList.find { it.id == entry.key }?.manga?.title }
 
         val hourCounts = history.mapNotNull { it.readAt }.map {
-            Calendar.getInstance().apply { time = it }.get(Calendar.HOUR_OF_DAY)
+            Calendar.getInstance().apply { timeInMillis = it.toEpochMilliseconds() }.get(Calendar.HOUR_OF_DAY)
         }.groupingBy { it }.eachCount()
         
         val topHour = hourCounts.maxByOrNull { it.value }?.key ?: 0
